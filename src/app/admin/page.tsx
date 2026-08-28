@@ -26,6 +26,7 @@ export default function AdminLogin() {
       if (res?.error) {
         setErrorMsg(res.error)
       } else {
+        router.refresh()
         router.push('/admin/dashboard')
       }
     })

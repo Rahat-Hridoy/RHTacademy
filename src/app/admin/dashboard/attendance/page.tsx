@@ -1,8 +1,8 @@
 import { AttendanceTracker } from '@/components/admin/attendance/AttendanceTracker';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export default async function AttendancePage() {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { data: students } = await supabase
     .from('profiles')

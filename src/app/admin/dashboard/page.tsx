@@ -1,9 +1,9 @@
 import { RequestsHub, RawRequest } from '@/components/admin/RequestsHub';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { RequestType } from '@/components/admin/RequestCard';
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Fetch from all 3 tables
   const { data: registrations } = await supabase

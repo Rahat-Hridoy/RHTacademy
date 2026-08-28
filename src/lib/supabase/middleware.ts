@@ -15,7 +15,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
           })
@@ -35,34 +35,54 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
-  const isPortalRoute = request.nextUrl.pathname.startsWith('/portal')
+  const pathname = request.nextUrl.pathname
+  const isAuthRoute = pathname.startsWith('/auth')
+  // Exact /admin path is the public login page — not a protected route
+  const isAdminLoginPage = pathname === '/admin'
+  const isAdminDashboardRoute = pathname.startsWith('/admin/dashboard')
+  const isPortalRoute = pathname.startsWith('/portal')
 
-  // If user is not logged in and tries to access protected routes, redirect to login
-  if (!user && isAdminRoute && request.nextUrl.pathname !== '/admin') {
+  // Guard protected admin dashboard routes — redirect to login if not authenticated
+  if (!user && isAdminDashboardRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/admin'
     return NextResponse.redirect(url)
   }
 
+  // Guard student portal routes
   if (!user && isPortalRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth'
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in
-  if (user) {
-    // Check if they are trying to access auth or admin login pages
-    if (isAuthRoute || request.nextUrl.pathname === '/admin') {
-      // Need to fetch profile role to redirect correctly
+  // If a logged-in user visits a login/auth page, redirect them to the right place.
+  // Use user_metadata.role (stored in JWT) to avoid an extra DB round-trip on every
+  // request. Only fall back to the DB if the metadata hasn't been stamped yet.
+  if (user && (isAuthRoute || isAdminLoginPage)) {
+    const metaRole = user.user_metadata?.role as string | undefined
+    const metaApproved = user.user_metadata?.is_approved as boolean | undefined
+
+    if (metaRole === 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    if (metaRole === 'student' && metaApproved) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/portal/${user.id}`
+      return NextResponse.redirect(url)
+    }
+
+    // Fallback: metadata not stamped yet — fetch from DB once
+    if (!metaRole) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, is_approved')
         .eq('id', user.id)
         .single()
-        
+
       if (profile?.role === 'admin') {
         const url = request.nextUrl.clone()
         url.pathname = '/admin/dashboard'

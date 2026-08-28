@@ -9,15 +9,34 @@ export default async function AdminDashboardLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
+
+  // getUser() validates the session with the Supabase auth server (unlike getSession which
+  // returns a potentially stale cached token). This is the secure pattern.
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/admin');
+  }
+
+  // Strictly enforce admin role
+  let isAdmin = user.user_metadata?.role === 'admin';
   
-  // In a real app, you would verify the session is an admin here
-  // For this project, we assume if they hit this route, they are checking admin auth
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  // Optional: Redirect to login if not authenticated as admin
-  // if (!session) {
-  //   redirect('/admin');
-  // }
+  if (!isAdmin) {
+    // Fallback check in case metadata is not updated yet
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+      
+    if (profile?.role === 'admin') {
+      isAdmin = true;
+    }
+  }
+
+  if (!isAdmin) {
+    redirect('/portal/dashboard'); // Redirect non-admins to their portal, or somewhere safe
+  }
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-slate-900 font-sans">

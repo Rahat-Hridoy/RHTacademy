@@ -1,8 +1,8 @@
 import { LandingControls } from '@/components/admin/landing/LandingControls';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export default async function LandingControlsPage() {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { data: aboutMe } = await supabase.from('about_me').select('*').limit(1);
   const { data: bookingCards } = await supabase.from('booking_cards').select('*').limit(1);

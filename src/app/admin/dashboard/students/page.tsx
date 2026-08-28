@@ -1,8 +1,8 @@
 import { StudentManagement } from '@/components/admin/students/StudentManagement';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export default async function StudentsPage() {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Fetch approved students
   const { data: students } = await supabase

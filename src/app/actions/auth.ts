@@ -71,7 +71,7 @@ export async function loginStudent(formData: FormData) {
 
   let email = identifier
 
-  // If it's a username (no @), we need to fetch the email
+  // If it's a username (no @), resolve it to an email first
   if (!identifier.includes('@')) {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -106,6 +106,18 @@ export async function loginStudent(formData: FormData) {
     return { error: 'Your account is pending admin approval' }
   }
 
+  // Stamp role + approval into JWT user_metadata so middleware skips DB on future requests
+  const existingMeta = data.user.user_metadata ?? {}
+  if (existingMeta.role !== profile?.role || existingMeta.is_approved !== profile?.is_approved) {
+    await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+      user_metadata: {
+        ...existingMeta,
+        role: profile?.role ?? 'student',
+        is_approved: profile?.is_approved ?? false,
+      },
+    })
+  }
+
   return { success: true, userId: data.user.id }
 }
 
@@ -120,18 +132,21 @@ export async function loginAdmin(formData: FormData) {
 
   let email = identifier
 
+  // Resolve username → email if needed (only 1 DB call, only when not an email)
   if (!identifier.includes('@')) {
-    const { data: profile } = await supabaseAdmin
+    const { data: usernameProfile } = await supabaseAdmin
       .from('profiles')
       .select('email')
       .eq('username', identifier)
       .single()
 
-    if (profile?.email) {
-      email = profile.email
+    if (!usernameProfile?.email) {
+      return { error: 'Invalid username or password' }
     }
+    email = usernameProfile.email
   }
 
+  // Sign in + fetch role in parallel: sign in first, then immediately fetch profile
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -141,7 +156,15 @@ export async function loginAdmin(formData: FormData) {
     return { error: error.message }
   }
 
-  // Check role
+  // Check JWT user_metadata.role first (zero extra DB call after first login)
+  const metaRole = data.user.user_metadata?.role as string | undefined
+
+  if (metaRole === 'admin') {
+    // Role already stamped in metadata — no DB call needed
+    return { success: true }
+  }
+
+  // First login or metadata not stamped yet — fetch from DB
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -152,6 +175,18 @@ export async function loginAdmin(formData: FormData) {
     await supabase.auth.signOut()
     return { error: 'Unauthorized access. Admin role required.' }
   }
+
+  // Stamp role into JWT user_metadata so all future logins skip this DB query
+  const existingMeta = data.user.user_metadata ?? {}
+  await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+    user_metadata: {
+      ...existingMeta,
+      role: 'admin',
+    },
+  })
+
+  // Refresh the session so the client receives the updated JWT with the admin role
+  await supabase.auth.refreshSession()
 
   return { success: true }
 }
