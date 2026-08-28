@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
+import { Inter, Noto_Serif } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -7,10 +7,10 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const poppins = Poppins({
+const notoSerif = Noto_Serif({
   weight: ['400', '500', '600', '700', '800', '900'],
   subsets: ["latin"],
-  variable: "--font-poppins",
+  variable: "--font-noto-serif",
 });
 
 export const metadata: Metadata = {
@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${poppins.variable} h-full antialiased`}
+      className={`${inter.variable} ${notoSerif.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

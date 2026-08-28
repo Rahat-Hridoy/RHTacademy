@@ -121,13 +121,19 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   }
-  h1, h2, h3, .font-heading {
-    font-family: var(--font-poppins), sans-serif;
+
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-family: var(--font-noto-serif), Georgia, serif;
   }
+
   html {
     @apply font-sans;
   }
