@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { loginAdmin } from '@/app/actions/auth'
 
 export default function AdminLogin() {
@@ -35,11 +36,23 @@ export default function AdminLogin() {
   return (
     <main className="min-h-screen bg-[#F9FAFB] px-4 py-8 sm:py-12 grid place-items-center font-sans">
       <div className="w-full max-w-md my-auto">
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 -ml-2.5 text-sm font-semibold text-slate-600 hover:text-blue-800 hover:bg-slate-100 transition-all group"
+          >
+            <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+            <span>Back to Home</span>
+          </Link>
+        </div>
+
         <div className="text-center mb-8">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1E40AF] text-white shadow-xl mb-4">
-            <ShieldCheck size={32} />
-          </div>
-          <h1 className="text-3xl font-black text-slate-950 font-heading">Admin Portal</h1>
+          <Link href="/" className="inline-block group cursor-pointer">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1E40AF] text-white shadow-xl mb-4 group-hover:scale-105 transition-transform">
+              <ShieldCheck size={32} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-950 font-heading group-hover:text-blue-800 transition-colors">Admin Portal</h1>
+          </Link>
           <p className="text-sm text-slate-500 mt-2">Secure access for RHTacademy administrators</p>
         </div>
 

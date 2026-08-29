@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, Check, Clock3, Eye, EyeOff, GraduationCap, LockKeyhole, Mail, Phone, Sparkles, UserRound, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import ReCAPTCHA from 'react-google-recaptcha'
 
 import { registerStudent, loginStudent, sendOtp, verifyOtpAndResetPassword } from '@/app/actions/auth'
@@ -148,10 +149,10 @@ export default function AuthPage() {
           <div className="pointer-events-none absolute -right-24 top-20 h-72 w-72 rounded-full border-[28px] border-white/10" />
           <div className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full border-[38px] border-teal-200/10" />
           <div className="relative">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-black text-[#1E40AF] shadow-xl">R</div>
-              <span className="text-xl font-extrabold tracking-tight font-heading">RHTacademy</span>
-            </div>
+            <Link href="/" className="flex items-center gap-3 group w-fit cursor-pointer">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-black text-[#1E40AF] shadow-xl group-hover:scale-105 transition-transform">R</div>
+              <span className="text-xl font-extrabold tracking-tight font-heading group-hover:text-teal-200 transition-colors">RHTacademy</span>
+            </Link>
             <div className="mt-16 max-w-sm">
               <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-teal-200">
                 <Sparkles size={14} /><span>Learn with purpose</span>
@@ -172,7 +173,24 @@ export default function AuthPage() {
         </aside>
 
         {/* Right Side (Form Section) — scrollable */}
-        <section className="flex-1 flex flex-col overflow-y-auto px-6 py-10 sm:px-12 sm:py-12 w-full max-w-xl mx-auto lg:max-w-none">
+        <section className="flex-1 flex flex-col overflow-y-auto px-6 py-8 sm:px-12 sm:py-10 w-full max-w-xl mx-auto lg:max-w-none">
+          {/* Back to Home Button & Mobile Header */}
+          <div className="mb-6 flex items-center justify-between">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 -ml-2.5 text-sm font-semibold text-slate-600 hover:text-blue-800 hover:bg-slate-100 transition-all group"
+            >
+              <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+              <span>Back to Home</span>
+            </Link>
+
+            {/* Mobile Logo Link */}
+            <Link href="/" className="flex items-center gap-2 lg:hidden group">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1E40AF] text-xs font-black text-white group-hover:scale-105 transition-transform">R</div>
+              <span className="text-sm font-bold text-slate-900 font-heading">RHTacademy</span>
+            </Link>
+          </div>
+
           <div className="mb-8 flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-teal-700">Welcome back</p>
@@ -308,7 +326,7 @@ export default function AuthPage() {
               <div className="overflow-hidden rounded-lg">
                 <ReCAPTCHA
                   sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'}
-                  onChange={(val) => setRecaptchaToken(val)}
+                  onChange={(val: string | null) => setRecaptchaToken(val)}
                 />
               </div>
 

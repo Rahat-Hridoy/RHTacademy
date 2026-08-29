@@ -32,8 +32,8 @@ export const AppSidebar = ({
 
   return (
     <div className="hidden lg:flex w-64 h-screen bg-[#1E3A8A] text-slate-300 flex-col fixed left-0 top-0 border-r border-blue-950">
-      <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-md flex items-center justify-center font-bold text-white">
+      <Link href="/" className="p-6 border-b border-slate-800 flex items-center gap-3 hover:bg-blue-900/40 transition-colors group cursor-pointer">
+        <div className="w-8 h-8 bg-blue-600 rounded-md flex items-center justify-center font-bold text-white group-hover:scale-105 transition-transform">
           R
         </div>
         <div>
@@ -42,7 +42,7 @@ export const AppSidebar = ({
             {userRole} Portal
           </p>
         </div>
-      </div>
+      </Link>
 
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
         {links.map(link => {

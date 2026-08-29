@@ -1,13 +1,14 @@
 import React from 'react';
+import Link from 'next/link';
 
 export const Footer = () => {
   return (
     <footer className="bg-[#081a48] px-6 py-8 text-blue-200 sm:px-10 lg:px-16">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-sm sm:flex-row">
-        <p className="flex items-center gap-3 text-lg font-black text-white">
+        <Link href="/" className="flex items-center gap-3 text-lg font-black text-white hover:opacity-90 transition-opacity">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0D9488]">R</span> 
           RHTacademy
-        </p>
+        </Link>
         <nav className="flex gap-6">
           <a href="#home" className="transition hover:text-white">Home</a>
           <a href="#about" className="transition hover:text-white">About</a>

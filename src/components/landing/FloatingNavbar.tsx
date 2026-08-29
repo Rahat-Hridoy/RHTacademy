@@ -26,14 +26,14 @@ export const FloatingNavbar = () => {
   return (
     <nav className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-5xl transition-all duration-300 rounded-2xl border border-white/20 shadow-lg ${isScrolled ? 'backdrop-blur-md bg-white/70 py-3' : 'bg-white/90 py-4'}`}>
       <div className="px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-blue-800 rounded-lg flex items-center justify-center">
+        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+          <div className="w-10 h-10 bg-blue-800 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
             <span className="text-white font-bold text-xl">R</span>
           </div>
           <span className="font-bold text-xl text-blue-900 tracking-tight hidden sm:block">
             RHTacademy
           </span>
-        </div>
+        </Link>
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-8">
