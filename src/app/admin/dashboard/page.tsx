@@ -1,6 +1,5 @@
 import { RequestsHub, RawRequest } from '@/components/admin/RequestsHub';
 import { createAdminClient } from '@/lib/supabase/server';
-import { RequestType } from '@/components/admin/RequestCard';
 
 export default async function AdminDashboardPage() {
   const supabase = await createAdminClient();
@@ -31,7 +30,7 @@ export default async function AdminDashboardPage() {
       email: r.email,
       phone: r.phone,
       class: r.class,
-      status: r.status,
+      status: r.status || 'pending',
       created_at: r.created_at
     }));
   }
@@ -43,8 +42,9 @@ export default async function AdminDashboardPage() {
       name: b.name,
       email: b.email,
       phone: b.phone,
+      class: b.class_time, // Class time / slot info
       subject: b.selected_subject,
-      status: b.status,
+      status: b.status || 'pending',
       created_at: b.created_at
     }));
   }
@@ -56,8 +56,7 @@ export default async function AdminDashboardPage() {
       name: c.name,
       email: c.email,
       message: c.message,
-      // Defaulting contact status to 'pending' if it exists in the table, otherwise it acts as pending until deleted
-      status: 'pending',
+      status: c.status || 'pending',
       created_at: c.created_at
     }));
   }
@@ -67,3 +66,4 @@ export default async function AdminDashboardPage() {
 
   return <RequestsHub requests={allRequests} />;
 }
+

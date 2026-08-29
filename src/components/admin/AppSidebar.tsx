@@ -7,11 +7,13 @@ import Link from 'next/link';
 interface AppSidebarProps {
   userRole?: 'admin' | 'student';
   activeItem?: string;
+  hasPendingRequests?: boolean;
 }
 
 export const AppSidebar = ({
   userRole = 'student',
   activeItem = 'Dashboard',
+  hasPendingRequests = false,
 }: AppSidebarProps) => {
   const adminLinks = [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
@@ -54,8 +56,8 @@ export const AppSidebar = ({
               <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${isActive ? 'bg-teal-600 text-white shadow-lg shadow-blue-950/20' : 'hover:bg-blue-900 hover:text-white text-blue-100/70'}`}>
                 <Icon size={20} className={`${isActive ? 'text-white' : 'group-hover:text-white'}`} />
                 <span className="font-medium text-sm">{link.name}</span>
-                {link.name === 'Dashboard' && userRole === 'admin' && (
-                  <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">New</span>
+                {link.name === 'Dashboard' && userRole === 'admin' && hasPendingRequests && (
+                  <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-md animate-pulse">New</span>
                 )}
               </button>
             </Link>
@@ -84,3 +86,4 @@ export const AppSidebar = ({
     </div>
   );
 };
+

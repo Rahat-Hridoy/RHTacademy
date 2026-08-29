@@ -1,10 +1,10 @@
 "use client";
 
 import React from 'react';
-import { CheckCircle2, XCircle, Clock, User, Mail, Phone, BookOpen } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, User, Mail, Phone, BookOpen, Eye } from 'lucide-react';
 
 export type RequestType = 'registration' | 'booking' | 'contact';
-export type RequestStatus = 'pending' | 'confirmed' | 'refused' | 'contacted' | 'replied';
+export type RequestStatus = 'pending' | 'approved' | 'confirmed' | 'refused' | 'contacted' | 'replied' | 'seen' | 'dismissed';
 
 interface RequestCardProps {
   id: string;
@@ -22,6 +22,7 @@ interface RequestCardProps {
   };
   onConfirm: (id: string, type: RequestType) => void;
   onRefuse?: (id: string, type: RequestType) => void;
+  onSeeDetails?: (id: string, type: RequestType) => void;
   isProcessing?: boolean;
 }
 
@@ -35,25 +36,33 @@ export const RequestCard: React.FC<RequestCardProps> = ({
   details,
   onConfirm,
   onRefuse,
+  onSeeDetails,
   isProcessing = false
 }) => {
   const getBadgeStyles = () => {
     switch (type) {
       case 'registration': return 'bg-blue-100 text-blue-700';
       case 'booking': return 'bg-teal-100 text-teal-700';
-      case 'contact': return 'bg-slate-100 text-slate-700';
+      case 'contact': return 'bg-orange-100 text-orange-700';
       default: return 'bg-slate-100 text-slate-700';
     }
   };
 
   const getStatusStyles = () => {
     switch (status) {
+      case 'approved':
       case 'confirmed':
-      case 'contacted':
-      case 'replied':
         return 'bg-emerald-500 text-white';
+      case 'contacted':
+        return 'bg-teal-600 text-white';
+      case 'replied':
+        return 'bg-blue-600 text-white';
+      case 'seen':
+        return 'bg-amber-500 text-white';
       case 'refused':
         return 'bg-red-500 text-white';
+      case 'dismissed':
+        return 'bg-slate-500 text-white';
       case 'pending':
         return 'bg-amber-500 text-white';
       default:
@@ -64,7 +73,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
   const getConfirmLabel = () => {
     switch (type) {
       case 'registration': return 'Confirm';
-      case 'booking': return 'Mark Contacted';
+      case 'booking': return 'Confirm Slot';
       case 'contact': return 'Dismiss';
     }
   };
@@ -124,27 +133,42 @@ export const RequestCard: React.FC<RequestCardProps> = ({
       </div>
 
       {status === 'pending' && (
-        <div className="flex gap-2 pt-4 border-t border-slate-100 mt-auto">
-          {onRefuse && (
+        <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-100 mt-auto">
+          {(type === 'booking' || type === 'contact') && onSeeDetails && (
+            <button
+              onClick={() => onSeeDetails(id, type)}
+              disabled={isProcessing}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-semibold text-xs hover:bg-slate-100 transition-colors disabled:opacity-50"
+            >
+              <Eye size={14} />
+              See Details
+            </button>
+          )}
+
+          {type === 'registration' && onRefuse && (
             <button 
               onClick={() => onRefuse(id, type)} 
               disabled={isProcessing}
-              className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-red-200 text-red-600 font-semibold text-xs hover:bg-red-50 transition-colors disabled:opacity-50"
             >
-              <XCircle size={16} />
+              <XCircle size={14} />
               Refuse
             </button>
           )}
-          <button 
-            onClick={() => onConfirm(id, type)} 
-            disabled={isProcessing}
-            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-blue-800 text-white font-semibold text-sm hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-          >
-            <CheckCircle2 size={16} />
-            {getConfirmLabel()}
-          </button>
+
+          {type === 'registration' && (
+            <button 
+              onClick={() => onConfirm(id, type)} 
+              disabled={isProcessing}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-800 text-white font-semibold text-xs hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <CheckCircle2 size={14} />
+              {getConfirmLabel()}
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 };
+
