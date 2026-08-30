@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   Check, Folder, FileText, ExternalLink, Bell,
   Pause, Trash2, Plus, Eye, AlertTriangle,
-  ChevronLeft, ChevronRight, Link2, FileImage, Clock3, X
+  ChevronLeft, ChevronRight, Link2, FileImage, Clock3, X,
+  Grid3X3, List, FolderPlus, FilePlus, Share2, Image as ImageIcon, Edit2
 } from 'lucide-react';
 import {
   updateStudentProfile,
@@ -27,6 +28,8 @@ import {
   deleteStudentAccount,
   saveStudentScheduleTime,
   updateStudentCycleConfig,
+  renameResourceFolder,
+  updateResource
 } from '@/app/actions/studentActions';
 
 export type TabName = 'Profile' | 'Attendance' | 'Resource Share' | 'Sent Notice' | 'Payment' | 'Action';
@@ -37,11 +40,10 @@ function Feedback({ msg }: { msg: { text: string; type: 'success' | 'error' } | 
   if (!msg) return null;
   return (
     <div
-      className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-normal ${
-        msg.type === 'success'
-          ? 'border-teal-200 bg-teal-50 text-teal-800'
-          : 'border-red-200 bg-red-50 text-red-800'
-      }`}
+      className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-normal ${msg.type === 'success'
+        ? 'border-teal-200 bg-teal-50 text-teal-800'
+        : 'border-red-200 bg-red-50 text-red-800'
+        }`}
     >
       {msg.text}
     </div>
@@ -372,9 +374,8 @@ export const AttendanceTab = ({
                 <span className="font-medium text-slate-700">{day}</span>
                 {record && record.completed && (
                   <span
-                    className={`mx-auto mt-2 block h-3 w-3 rounded-full ${
-                      record.class_type === 'onsite' ? 'bg-emerald-500' : 'bg-sky-400'
-                    }`}
+                    className={`mx-auto mt-2 block h-3 w-3 rounded-full ${record.class_type === 'onsite' ? 'bg-emerald-500' : 'bg-sky-400'
+                      }`}
                     aria-label={record.class_type}
                   />
                 )}
@@ -410,13 +411,12 @@ export const AttendanceTab = ({
                   </span>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        !record.completed
-                          ? 'bg-slate-100 text-slate-600'
-                          : record.class_type === 'onsite'
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${!record.completed
+                        ? 'bg-slate-100 text-slate-600'
+                        : record.class_type === 'onsite'
                           ? 'bg-emerald-50 text-emerald-700'
                           : 'bg-sky-50 text-sky-700'
-                      }`}
+                        }`}
                     >
                       {!record.completed
                         ? 'Absent'
@@ -478,10 +478,43 @@ export const ResourceTab = ({
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [showResourceForm, setShowResourceForm] = useState(false);
+  const [showFolderForm, setShowFolderForm] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [renameFolderData, setRenameFolderData] = useState<{ id: string; name: string } | null>(null);
+  const [editResourceData, setEditResourceData] = useState<any | null>(null);
+  const [resourceView, setResourceView] = useState<'grid' | 'list'>('grid');
   const [isPending, setIsPending] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setFileError(null);
+      return;
+    }
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setFileError('Invalid file type. Only JPG, PNG, and WEBP are allowed.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setFileError('Image size must be less than 2MB.');
+      return;
+    }
+    setFileError(null);
+  };
+
   const activeFolderData = folders.find(f => f.id === activeFolder);
+  const activeFolderResources = resources.filter(r => activeFolder ? r.folder_id === activeFolder : !r.folder_id);
+
+  // Subject pill color helper
+  const subjectPill = (subject: string) => {
+    if (subject.toLowerCase().includes('physics')) return 'bg-blue-50 text-blue-700 ring-blue-100';
+    if (subject.toLowerCase().includes('chem')) return 'bg-emerald-50 text-emerald-700 ring-emerald-100';
+    if (subject.toLowerCase().includes('math')) return 'bg-violet-50 text-violet-700 ring-violet-100';
+    return 'bg-slate-100 text-slate-700 ring-slate-200';
+  };
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -493,7 +526,10 @@ export const ResourceTab = ({
     else {
       setMsg({ text: `Folder "${newFolderName.trim()}" created.`, type: 'success' });
       setNewFolderName('');
+      setShowFolderForm(false);
       router.refresh();
+      // Clear success message after 3 seconds
+      setTimeout(() => setMsg(null), 3000);
     }
     setIsPending(false);
   };
@@ -509,6 +545,7 @@ export const ResourceTab = ({
       setMsg({ text: `Folder deleted.`, type: 'success' });
       if (activeFolder === id) setActiveFolder(null);
       router.refresh();
+      setTimeout(() => setMsg(null), 3000);
     }
     setIsPending(false);
   };
@@ -528,6 +565,7 @@ export const ResourceTab = ({
       (e.target as HTMLFormElement).reset();
       setActiveFolder(folderId || null);
       router.refresh();
+      setTimeout(() => setMsg(null), 3000);
     }
     setIsPending(false);
   };
@@ -538,187 +576,406 @@ export const ResourceTab = ({
     setMsg(null);
     const res = await deleteResource(id);
     if (res?.error) setMsg({ text: res.error, type: 'error' });
-    else { setMsg({ text: 'Resource deleted.', type: 'success' }); router.refresh(); }
+    else {
+      setMsg({ text: 'Resource deleted.', type: 'success' });
+      router.refresh();
+      setTimeout(() => setMsg(null), 3000);
+    }
     setIsPending(false);
   };
 
-  const activeFolderResources = resources.filter(r => activeFolder ? r.folder_id === activeFolder : !r.folder_id);
+  const handleRenameFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renameFolderData || !renameFolderData.name.trim()) return;
+    setIsPending(true);
+    setMsg(null);
+    const res = await renameResourceFolder(renameFolderData.id, renameFolderData.name.trim());
+    if (res?.error) setMsg({ text: res.error, type: 'error' });
+    else {
+      setMsg({ text: `Folder renamed successfully.`, type: 'success' });
+      setRenameFolderData(null);
+      router.refresh();
+      setTimeout(() => setMsg(null), 3000);
+    }
+    setIsPending(false);
+  };
+
+  const handleUpdateResource = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editResourceData) return;
+    setIsPending(true);
+    setMsg(null);
+    const fd = new FormData(e.currentTarget);
+    const folderId = fd.get('folder_id_override') as string;
+    const folderData = folders.find(f => f.id === folderId);
+    const res = await updateResource(editResourceData.id, folderId, folderData?.name || '', fd);
+    if (res?.error) setMsg({ text: res.error, type: 'error' });
+    else {
+      setMsg({ text: 'Resource updated successfully.', type: 'success' });
+      setEditResourceData(null);
+      router.refresh();
+      setTimeout(() => setMsg(null), 3000);
+    }
+    setIsPending(false);
+  };
 
   return (
-    <div className="space-y-5">
-      {/* ── Header Row ────────────────────────────────────────────────── */}
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div>
-          <p className="text-sm font-medium text-slate-500">
-            Resources{activeFolderData ? ` › ${activeFolderData.name}` : ' › Outside Folders'}
-          </p>
-          <h3 className="mt-1 text-xl font-semibold text-slate-950">Google Drive-style Library</h3>
+    <div className="rounded-[28px] bg-[#F9FAFB] p-3 sm:p-5">
+      {msg && (
+        <div className={`fixed right-4 top-4 z-50 max-w-sm rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg ${msg.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`} role="status">
+          <span>{msg.text}</span>
         </div>
-        <div className="flex gap-2">
-          {/* New Folder inline */}
-          <form onSubmit={handleCreateFolder} className="flex items-center gap-2">
-            <input
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              placeholder="Folder name…"
-              className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-200 w-36"
-            />
-            <button
-              type="submit"
-              disabled={isPending || !newFolderName.trim()}
-              className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors"
-            >
-              New Folder
-            </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => setShowResourceForm(o => !o)}
-            className="rounded-2xl bg-[#1E40AF] px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-900 transition-colors"
-          >
-            {showResourceForm ? 'Cancel' : 'New Resource'}
-          </button>
-        </div>
-      </div>
-
-      <Feedback msg={msg} />
-
-      {/* ── New Resource Form ─────────────────────────────────────────── */}
-      {showResourceForm && (
-        <form
-          onSubmit={handleAddResource}
-          className="grid gap-3 rounded-3xl border border-blue-100 bg-blue-50 p-5 lg:grid-cols-2"
-        >
-          <input name="subject" required placeholder="Title *" className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
-          <input name="drive_link" required placeholder="Drive / File URL *" className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
-          <input name="thumbnail_url" placeholder="Thumbnail URL (optional)" className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
-          <select
-            name="folder_id_override"
-            value={activeFolder || ''}
-            onChange={e => setActiveFolder(e.target.value || null)}
-            className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm outline-none"
-          >
-            <option value="">No Folder (Root)</option>
-            {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
-          <textarea name="note" placeholder="Short note / instructions (optional)" className="min-h-24 rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200 lg:col-span-2" />
-          <button type="submit" disabled={isPending} className="rounded-xl bg-[#1E40AF] px-4 py-3 text-sm font-medium text-white disabled:opacity-60 hover:bg-blue-900 transition-colors">
-            <span>{isPending ? 'Sharing…' : 'Share Resource'}</span>
-          </button>
-        </form>
       )}
 
-      {/* ── Folder Cards ──────────────────────────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <article
-          onClick={() => setActiveFolder(null)}
-          className={`cursor-pointer rounded-3xl border bg-white p-5 shadow-sm transition-all ${
-            activeFolder === null
-              ? 'border-[#1E40AF] ring-2 ring-blue-100'
-              : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-start justify-between">
-            <FileText className="text-[#1E40AF]" size={32} aria-hidden="true" />
-          </div>
-          <h4 className="mt-4 font-medium text-slate-950">
-            <span>Outside Folders</span>
-          </h4>
-          <p className="mt-1 text-sm font-normal text-slate-500">
-            <span>{resources.filter(r => !r.folder_id).length} files</span>
-          </p>
-        </article>
-        {folders.map(folder => {
-          const count = resources.filter(r => r.folder_id === folder.id).length;
-          return (
-            <article
-              key={folder.id}
-              onClick={() => setActiveFolder(folder.id)}
-              className={`cursor-pointer rounded-3xl border bg-white p-5 shadow-sm transition-all ${
-                activeFolder === folder.id
-                  ? 'border-[#1E40AF] ring-2 ring-blue-100'
-                  : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <Folder className="text-amber-500" size={32} aria-hidden="true" />
-                <button
-                  type="button"
-                  onClick={e => handleDeleteFolder(e, folder.id, folder.name)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-              <h4 className="mt-4 font-medium text-slate-950">
-                <span>{folder.name}</span>
-              </h4>
-              <p className="mt-1 text-sm font-normal text-slate-500">
-                <span>{count} file{count !== 1 ? 's' : ''}</span>
-              </p>
-            </article>
-          );
-        })}
-      </div>
+      <section aria-labelledby="resource-library-title" className="space-y-6">
+        <div className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-2 shadow-sm sm:p-3">
+          <nav aria-label="Resource breadcrumb" className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-500">
+            <button type="button" onClick={() => setActiveFolder(null)} className="rounded-full px-2 py-1 text-[#1E40AF] hover:bg-blue-50">
+              <span>Resources</span>
+            </button>
+            {activeFolderData && <span className="text-slate-300">&gt;</span>}
+            {activeFolderData && (
+              <button type="button" onClick={() => setActiveFolder(null)} className="truncate rounded-full px-2 py-1 text-slate-900 hover:bg-slate-100">
+                <span>{activeFolderData.name}</span>
+              </button>
+            )}
+          </nav>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex rounded-2xl border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Resource view toggle">
+              <button type="button" aria-label="Show resources as list" onClick={() => setResourceView('list')} className={`rounded-xl p-1.5 transition ${resourceView === 'list' ? 'bg-[#0D9488] text-white shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}>
+                <List size={16} aria-hidden="true" />
+              </button>
+              <button type="button" aria-label="Show resources as grid" onClick={() => setResourceView('grid')} className={`rounded-xl p-1.5 transition ${resourceView === 'grid' ? 'bg-[#0D9488] text-white shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}>
+                <Grid3X3 size={16} aria-hidden="true" />
+              </button>
+            </div>
 
-      {/* ── Resource Cards (active folder) ───────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-2">
-          {activeFolderResources.map(resource => (
-            <article
-              key={resource.id}
-              className="flex gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-2xl bg-slate-100">
-                {resource.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={resource.thumbnail_url}
-                    alt={resource.subject}
-                    className="h-full w-full rounded-2xl object-cover"
-                  />
-                ) : (
-                  <FileImage className="text-slate-400" aria-hidden="true" size={28} />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700">
-                  {resource.folder_name || activeFolderData?.name}
-                </span>
-                <h4 className="mt-2 font-medium text-slate-950">
-                  <span>{resource.subject}</span>
-                </h4>
-                {resource.drive_link && (
-                  <a
-                    href={resource.drive_link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 flex items-center gap-1 text-xs font-normal text-[#1E40AF] hover:underline"
-                  >
-                    <Link2 size={13} />
-                    <span className="truncate">{resource.drive_link.replace(/^https?:\/\//, '')}</span>
-                  </a>
-                )}
-                {resource.note && (
-                  <p className="mt-2 text-sm text-slate-500 line-clamp-2">
-                    <span>{resource.note}</span>
-                  </p>
-                )}
-              </div>
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => handleDeleteResource(resource.id)}
-                className="self-start rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                onClick={() => setShowAddMenu(!showAddMenu)}
+                className="inline-flex items-center gap-1 rounded-2xl bg-white border border-[#0D9488] px-4 py-2 text-sm font-semibold text-[#0D9488] shadow-sm hover:bg-red-50 transition"
               >
-                <Trash2 size={15} />
+                <Plus size={16} />
+                <span>Add</span>
               </button>
-            </article>
-          ))}
-          {activeFolderResources.length === 0 && (
-            <p className="col-span-full rounded-3xl border border-dashed border-slate-200 py-8 text-center text-sm font-semibold text-slate-500">
-              No resources in this folder yet.
-            </p>
-          )}
+
+              {showAddMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)}></div>
+                  <div className="absolute right-0 top-full mt-2 w-48 z-50 rounded-2xl bg-white border border-slate-200 p-2 shadow-xl">
+                    <button type="button" onClick={() => { setShowAddMenu(false); setShowFolderForm(true); }} className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      <FolderPlus size={16} /> New Folder
+                    </button>
+                    <button type="button" onClick={() => { setShowAddMenu(false); setShowResourceForm(true); }} className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 mt-1">
+                      <FilePlus size={16} /> New Resource
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Create folder modal */}
+        {showFolderForm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <form onSubmit={handleCreateFolder} className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+              <h4 className="text-xl font-semibold text-slate-900 mb-4">Create New Folder</h4>
+              <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="Folder Name..." className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200" required />
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowFolderForm(false)} className="rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+                <button type="submit" disabled={isPending} className="rounded-xl bg-[#1E40AF] px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-900 transition disabled:opacity-60">{isPending ? 'Creating...' : 'Create'}</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Create resource modal */}
+        {showResourceForm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+            <form onSubmit={handleAddResource} className="my-auto w-full max-w-[500px] rounded-[28px] bg-white p-6 shadow-xl">
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="text-[22px] font-semibold text-slate-900">Share New Resource</h4>
+                <button type="button" onClick={() => setShowResourceForm(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
+              </div>
+
+              <div className="flex flex-col gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Resource Title</label>
+                  <input name="subject" required placeholder="e.g. Chapter 3 - Newton's Laws" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Subject</label>
+                  <input name="subject_label" required placeholder="e.g. Physics, Chemistry, Math" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Folder</label>
+                  <select name="folder_id_override" value={activeFolder || ''} onChange={e => setActiveFolder(e.target.value || null)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition appearance-none bg-no-repeat bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%20%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%2364748B%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_12px_center]">
+                    <option value="">Root / No Folder</option>
+                    {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Google Drive Link</label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                      <Link2 size={16} />
+                    </div>
+                    <input name="drive_link" required placeholder="https://drive.google.com/..." className="w-full rounded-2xl border border-slate-200 pl-11 pr-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Thumbnail (Image or URL)</label>
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="file"
+                      name="thumbnail_file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleFileChange}
+                      className={`w-full rounded-2xl border ${fileError ? 'border-red-500' : 'border-slate-200'} file:mr-4 file:py-3 file:px-4 file:rounded-l-2xl file:border-0 file:border-r file:border-slate-200 file:text-sm file:font-semibold file:bg-slate-50 file:text-[#0D9488] hover:file:bg-slate-100 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition bg-white cursor-pointer`}
+                    />
+                    <div className="relative">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                        <ImageIcon size={16} />
+                      </div>
+                      <input name="thumbnail_url" placeholder="Or enter URL (optional)" className="w-full rounded-2xl border border-slate-200 pl-11 pr-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                    </div>
+                  </div>
+                  {fileError ? (
+                    <p className="mt-1 text-red-500 text-[9px] font-medium">{fileError}</p>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500">Upload an image (Max 2MB, JPG/PNG/WEBP) OR provide an external URL.</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Short Note</label>
+                  <textarea name="note" placeholder="Add a brief note about this resource..." className="min-h-[100px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition resize-none" />
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button type="button" onClick={() => { setShowResourceForm(false); setFileError(null); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] hover:bg-slate-50 transition shadow-sm">Cancel</button>
+                <button type="submit" disabled={isPending || !!fileError} className="inline-flex items-center gap-2 rounded-xl bg-[#0D9488] px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 transition disabled:opacity-60 shadow-sm">
+                  <Share2 size={16} />
+                  {isPending ? 'Sharing...' : 'Share Resource'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Rename folder modal */}
+        {renameFolderData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <form onSubmit={handleRenameFolder} className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+              <h4 className="text-xl font-semibold text-slate-900 mb-4">Rename Folder</h4>
+              <input value={renameFolderData.name} onChange={e => setRenameFolderData({ ...renameFolderData, name: e.target.value })} placeholder="Folder Name..." className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200" required />
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setRenameFolderData(null)} className="rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+                <button type="submit" disabled={isPending} className="rounded-xl bg-[#1E40AF] px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-900 transition disabled:opacity-60">{isPending ? 'Saving...' : 'Save'}</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Edit resource modal */}
+        {editResourceData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+            <form onSubmit={handleUpdateResource} className="my-auto w-full max-w-[500px] rounded-[28px] bg-white p-6 shadow-xl">
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="text-[22px] font-semibold text-slate-900">Edit Resource</h4>
+                <button type="button" onClick={() => setEditResourceData(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
+              </div>
+
+              <div className="flex flex-col gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Resource Title</label>
+                  <input name="subject" defaultValue={editResourceData.subject} required placeholder="e.g. Chapter 3 - Newton's Laws" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Folder</label>
+                  <select name="folder_id_override" defaultValue={editResourceData.folder_id || ''} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition appearance-none bg-no-repeat bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%20%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%2364748B%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_12px_center]">
+                    <option value="">Root / No Folder</option>
+                    {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Google Drive Link</label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                      <Link2 size={16} />
+                    </div>
+                    <input name="drive_link" defaultValue={editResourceData.drive_link} required placeholder="https://drive.google.com/..." className="w-full rounded-2xl border border-slate-200 pl-11 pr-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Thumbnail (Image or URL)</label>
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="file"
+                      name="thumbnail_file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleFileChange}
+                      className={`w-full rounded-2xl border ${fileError ? 'border-red-500' : 'border-slate-200'} file:mr-4 file:py-3 file:px-4 file:rounded-l-2xl file:border-0 file:border-r file:border-slate-200 file:text-sm file:font-semibold file:bg-slate-50 file:text-[#0D9488] hover:file:bg-slate-100 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition bg-white cursor-pointer`}
+                    />
+                    <div className="relative">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                        <ImageIcon size={16} />
+                      </div>
+                      <input name="thumbnail_url" defaultValue={editResourceData.thumbnail_url} placeholder="Or enter URL (optional)" className="w-full rounded-2xl border border-slate-200 pl-11 pr-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition" />
+                    </div>
+                  </div>
+                  {fileError ? (
+                    <p className="mt-1 text-red-500 text-[11px] font-medium">{fileError}</p>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500">Upload a new image (Max 2MB) OR provide a URL to replace the current thumbnail.</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#334155] mb-2">Short Note</label>
+                  <textarea name="note" defaultValue={editResourceData.note} placeholder="Add a brief note about this resource..." className="min-h-[100px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition resize-none" />
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button type="button" onClick={() => { setEditResourceData(null); setFileError(null); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] hover:bg-slate-50 transition shadow-sm">Cancel</button>
+                <button type="submit" disabled={isPending || !!fileError} className="inline-flex items-center gap-2 rounded-xl bg-[#0D9488] px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 transition disabled:opacity-60 shadow-sm">
+                  <Edit2 size={16} />
+                  {isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* --- Folders View (Only in root) --- */}
+        {!activeFolder && (
+          <section aria-labelledby="folders-heading">
+            <div className="mb-3 flex items-center gap-2">
+              <h4 id="folders-heading" className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-500"><span>Folders</span></h4>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">{folders.length}</span>
+            </div>
+            {folders.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {folders.map(folder => {
+                  const fileCount = resources.filter(r => r.folder_id === folder.id).length;
+                  return (
+                    <div key={folder.id} className="group flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-300 hover:shadow-md cursor-pointer" onClick={() => setActiveFolder(folder.id)}>
+                      <div>
+                        <div className="flex justify-between items-start">
+                          <Folder className="text-amber-400 transition group-hover:text-amber-500" size={40} aria-hidden="true" />
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setRenameFolderData({ id: folder.id, name: folder.name }); }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" aria-label="Rename folder">
+                              <Edit2 size={16} aria-hidden="true" />
+                            </button>
+                            <button type="button" onClick={(e) => handleDeleteFolder(e, folder.id, folder.name)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition" aria-label="Delete folder">
+                              <Trash2 size={16} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                        <h5 className="mt-5 text-base font-medium text-slate-950"><span>{folder.name}</span></h5>
+                        <p className="mt-1 text-sm text-slate-500"><span>{fileCount} file{fileCount !== 1 ? 's' : ''}</span></p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white/50 p-8 text-center">
+                <p className="text-sm text-slate-500">No folders created yet.</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* --- Files View --- */}
+        <section aria-labelledby="files-heading">
+          <div className="mb-3 flex items-center gap-2">
+            <h4 id="files-heading" className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-500"><span>{activeFolderData ? 'Folder Files' : 'Shared Files'}</span></h4>
+            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">{activeFolderResources.length} files</span>
+          </div>
+
+          {activeFolderResources.length > 0 ? (
+            <div className={resourceView === 'grid' ? "grid gap-4 md:grid-cols-2 xl:grid-cols-3" : "grid gap-3"}>
+              {activeFolderResources.map(resource => (
+                <article key={resource.id} className={`group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:border-blue-200 hover:shadow-md ${resourceView === 'list' ? 'flex items-center gap-4 p-4' : ''}`}>
+                  {resourceView === 'grid' ? (
+                    <>
+                      {resource.thumbnail_url ? <img src={resource.thumbnail_url} alt={resource.subject} className="h-32 w-full object-cover" /> : <div className="flex h-32 items-center justify-center bg-slate-100"><FileImage className="text-slate-300" size={34} aria-hidden="true" /></div>}
+                      <div className="p-4 flex flex-col h-[calc(100%-8rem)]">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${subjectPill(resource.subject)}`}>{resource.subject}</span>
+                          {resource.drive_link && (
+                            <a href={resource.drive_link} target="_blank" rel="noreferrer" aria-label={`Open ${resource.subject}`} className="rounded-xl p-2 text-[#1E40AF] hover:bg-blue-50">
+                              <Link2 size={16} aria-hidden="true" />
+                            </a>
+                          )}
+                        </div>
+                        <h5 className="text-base font-semibold text-slate-950 mb-1 line-clamp-1">{resource.subject}</h5>
+                        {resource.note && <p className="text-sm text-slate-500 line-clamp-2 mb-4">{resource.note}</p>}
+
+                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                          <span className="text-xs text-slate-400">
+                            {new Date(resource.created_at || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                          <div className="flex gap-1">
+                            <button type="button" aria-label="Edit resource" onClick={() => setEditResourceData(resource)} className="rounded-xl bg-slate-50 p-2 text-slate-500 hover:text-slate-700 transition">
+                              <Edit2 size={15} aria-hidden="true" />
+                            </button>
+                            <button type="button" aria-label="Delete resource" onClick={() => handleDeleteResource(resource.id)} className="rounded-xl bg-slate-50 p-2 text-slate-500 hover:text-red-600 transition">
+                              <Trash2 size={15} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-100">
+                        {resource.thumbnail_url ? <img src={resource.thumbnail_url} alt={resource.subject} className="h-full w-full rounded-2xl object-cover" /> : <FileImage className="text-slate-400" size={24} aria-hidden="true" />}
+                      </div>
+                      <div className="min-w-0 flex-1 py-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h5 className="font-semibold text-slate-950 truncate">{resource.subject}</h5>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${subjectPill(resource.subject)}`}>{resource.subject}</span>
+                        </div>
+                        {resource.note && <p className="text-xs text-slate-500 truncate">{resource.note}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 pr-2">
+                        {resource.drive_link && (
+                          <a href={resource.drive_link} target="_blank" rel="noreferrer" aria-label={`Open ${resource.subject}`} className="rounded-xl p-2 text-[#1E40AF] hover:bg-blue-50">
+                            <Link2 size={16} aria-hidden="true" />
+                          </a>
+                        )}
+                        <button type="button" aria-label="Edit resource" onClick={() => setEditResourceData(resource)} className="rounded-xl p-2 text-slate-400 hover:text-slate-600 transition">
+                          <Edit2 size={16} aria-hidden="true" />
+                        </button>
+                        <button type="button" aria-label="Delete resource" onClick={() => handleDeleteResource(resource.id)} className="rounded-xl p-2 text-slate-400 hover:text-red-600 transition">
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white/50 p-8 text-center">
+              <p className="text-sm text-slate-500">No resources shared here yet.</p>
+            </div>
+          )}
+        </section>
+      </section>
     </div>
   );
 };
@@ -846,9 +1103,8 @@ export const NoticeTab = ({
                 </div>
               </div>
               <p
-                className={`mt-3 text-sm text-slate-600 ${
-                  expandedId === item.id ? '' : 'line-clamp-2'
-                }`}
+                className={`mt-3 text-sm text-slate-600 ${expandedId === item.id ? '' : 'line-clamp-2'
+                  }`}
               >
                 <span>{item.content}</span>
               </p>

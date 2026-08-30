@@ -104,13 +104,50 @@ export async function deleteResourceFolder(folderId: string) {
   return { success: true };
 }
 
+async function uploadThumbnail(file: File | null): Promise<string | null> {
+  if (!file || file.size === 0) return null;
+  
+  // Validation
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only JPG, PNG, and WEBP are allowed.');
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('Image size must be less than 2MB.');
+  }
+
+  const supabase = await createAdminClient();
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+  
+  const { data, error } = await supabase.storage
+    .from('resource-thumbnails')
+    .upload(fileName, file, { contentType: file.type });
+
+  if (error) throw new Error('Failed to upload image: ' + error.message);
+
+  const { data: publicUrlData } = supabase.storage
+    .from('resource-thumbnails')
+    .getPublicUrl(fileName);
+
+  return publicUrlData.publicUrl;
+}
+
 export async function addResource(studentId: string, folderId: string, folderName: string, formData: FormData) {
   const supabase = await createAdminClient();
   
   const subject = formData.get('subject') as string;
   const drive_link = formData.get('drive_link') as string;
-  const thumbnail_url = formData.get('thumbnail_url') as string;
+  let thumbnail_url = formData.get('thumbnail_url') as string;
+  const thumbnail_file = formData.get('thumbnail_file') as File | null;
   const note = formData.get('note') as string;
+
+  try {
+    const uploadedUrl = await uploadThumbnail(thumbnail_file);
+    if (uploadedUrl) thumbnail_url = uploadedUrl;
+  } catch (err: any) {
+    return { error: err.message };
+  }
 
   const { error } = await supabase
     .from('resources')
@@ -145,6 +182,51 @@ export async function deleteResource(resourceId: string) {
     .eq('id', resourceId);
 
   if (error) return { error: 'Failed to delete resource: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+export async function renameResourceFolder(folderId: string, newName: string) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('resource_folders')
+    .update({ name: newName })
+    .eq('id', folderId);
+
+  if (error) return { error: 'Failed to rename folder: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+export async function updateResource(resourceId: string, folderId: string, folderName: string, formData: FormData) {
+  const supabase = await createAdminClient();
+  
+  const subject = formData.get('subject') as string;
+  const drive_link = formData.get('drive_link') as string;
+  let thumbnail_url = formData.get('thumbnail_url') as string;
+  const thumbnail_file = formData.get('thumbnail_file') as File | null;
+  const note = formData.get('note') as string;
+
+  try {
+    const uploadedUrl = await uploadThumbnail(thumbnail_file);
+    if (uploadedUrl) thumbnail_url = uploadedUrl;
+  } catch (err: any) {
+    return { error: err.message };
+  }
+
+  const { error } = await supabase
+    .from('resources')
+    .update({
+      folder_id: folderId || null,
+      folder_name: folderName || null,
+      subject,
+      drive_link,
+      thumbnail_url: thumbnail_url || null,
+      note: note || null
+    })
+    .eq('id', resourceId);
+
+  if (error) return { error: 'Failed to update resource: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
