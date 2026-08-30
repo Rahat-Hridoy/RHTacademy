@@ -117,15 +117,15 @@ export const StudentManagement = ({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               {/* Large Avatar */}
-              <div className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-full text-3xl font-black ${tone}`}>
+              <div className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-full text-3xl font-medium ${tone}`}>
                 <span>{initials}</span>
               </div>
               {/* Info */}
               <div>
-                <h2 id="student-detail-title" className="text-3xl font-black tracking-tight text-slate-950">
+                <h2 id="student-detail-title" className="text-3xl font-medium tracking-tight text-slate-950">
                   <span>{displayName}</span>
                 </h2>
-                <p className="mt-1 text-sm font-bold text-slate-600">
+                <p className="mt-1 text-sm font-normal text-slate-600">
                   <span>
                     {selectedStudent.admin_custom_class || selectedStudent.class || 'N/A'}
                     {' · '}
@@ -133,7 +133,7 @@ export const StudentManagement = ({
                   </span>
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(acctStatus)}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${statusBadge(acctStatus)}`}>
                     {acctStatus === 'paused' ? 'Paused' : 'Active'}
                   </span>
                   {selectedStudent.email && (
@@ -155,7 +155,7 @@ export const StudentManagement = ({
             <button
               type="button"
               onClick={() => setSelectedStudentId(null)}
-              className="self-start inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[#1E40AF] shadow-sm hover:bg-blue-50 transition-colors"
+              className="self-start inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-[#1E40AF] shadow-sm hover:bg-blue-50 transition-colors"
             >
               <ArrowLeft size={16} aria-hidden="true" />
               <span>Back to List</span>
@@ -170,7 +170,7 @@ export const StudentManagement = ({
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
-                  className={`border-b-2 px-4 py-3 text-sm font-black transition ${tab === t
+                  className={`border-b-2 px-4 py-3 text-sm font-medium transition ${tab === t
                     ? 'border-[#1E40AF] text-[#1E40AF]'
                     : 'border-transparent text-slate-500 hover:text-slate-950'
                     }`}
@@ -217,7 +217,7 @@ export const StudentManagement = ({
       {/* ── List Header Controls ────────────────────────────────────── */}
       <div className="flex flex-col justify-between gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-end">
         <div>
-          <h2 id="students-title" className="text-2xl font-black">
+          <h2 id="students-title" className="text-2xl font-medium">
             <span>Students</span>
           </h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -263,7 +263,7 @@ export const StudentManagement = ({
         <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Avatar</th>
                   <th className="px-5 py-3">Full Name</th>
@@ -281,11 +281,11 @@ export const StudentManagement = ({
                   return (
                     <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-5 py-4">
-                        <span className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-black ${tone}`}>
+                        <span className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-medium ${tone}`}>
                           {initials}
                         </span>
                       </td>
-                      <td className="px-5 py-4 font-black text-slate-950">
+                      <td className="px-5 py-4 font-medium text-slate-950">
                         {student.admin_custom_name || student.full_name}
                       </td>
                       <td className="px-5 py-4 text-slate-600">
@@ -295,7 +295,7 @@ export const StudentManagement = ({
                         {student.admin_custom_institute || student.institute || '—'}
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(acctStatus)}`}>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${statusBadge(acctStatus)}`}>
                           {acctStatus === 'paused' ? 'Paused' : 'Active'}
                         </span>
                       </td>
@@ -303,7 +303,7 @@ export const StudentManagement = ({
                         <button
                           type="button"
                           onClick={() => selectStudent(student)}
-                          className="rounded-xl border border-blue-200 px-4 py-2 text-xs font-black text-[#1E40AF] hover:bg-blue-50 transition-colors"
+                          className="rounded-xl border border-blue-200 px-4 py-2 text-xs font-medium text-[#1E40AF] hover:bg-blue-50 transition-colors"
                         >
                           <span>View Details</span>
                         </button>
@@ -331,10 +331,10 @@ export const StudentManagement = ({
             const acctStatus = student.account_status || 'active';
             return (
               <article key={student.id} className="rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-200">
-                <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black ${tone}`}>
+                <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full text-2xl font-medium ${tone}`}>
                   {initials}
                 </div>
-                <h3 className="mt-4 text-lg font-black text-slate-950">
+                <h3 className="mt-4 text-lg font-semibold text-slate-950">
                   <span>{student.admin_custom_name || student.full_name}</span>
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
@@ -344,13 +344,13 @@ export const StudentManagement = ({
                     {student.admin_custom_institute || student.institute || '—'}
                   </span>
                 </p>
-                <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(acctStatus)}`}>
+                <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${statusBadge(acctStatus)}`}>
                   {acctStatus === 'paused' ? 'Paused' : 'Active'}
                 </span>
                 <button
                   type="button"
                   onClick={() => selectStudent(student)}
-                  className="mt-4 w-full rounded-2xl border border-blue-200 px-4 py-3 text-sm font-black text-[#1E40AF] hover:bg-blue-50 transition-colors"
+                  className="mt-4 w-full rounded-2xl border border-blue-200 px-4 py-3 text-sm font-medium text-[#1E40AF] hover:bg-blue-50 transition-colors"
                 >
                   <span>View Details</span>
                 </button>

@@ -116,8 +116,8 @@ export async function addResource(studentId: string, folderId: string, folderNam
     .from('resources')
     .insert({
       student_id: studentId,
-      folder_id: folderId,
-      folder_name: folderName,
+      folder_id: folderId || null,
+      folder_name: folderName || null,
       subject,
       drive_link,
       thumbnail_url: thumbnail_url || null,
