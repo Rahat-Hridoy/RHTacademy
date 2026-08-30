@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { Suspense, useEffect, useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, Check, Clock3, Eye, EyeOff, GraduationCap, LockKeyhole, Mail, Phone, Sparkles, UserRound, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -24,7 +24,7 @@ const passwordRules = [
   { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
 ]
 
-export default function AuthPage() {
+function AuthContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const initialView = searchParams.get('view') as AuthView | null
@@ -405,5 +405,13 @@ export default function AuthPage() {
         </section>
       </div>
     </main>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">Loading...</div>}>
+      <AuthContent />
+    </Suspense>
   )
 }

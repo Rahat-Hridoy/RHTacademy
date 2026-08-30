@@ -1,26 +1,40 @@
 "use server";
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 // PROFILE TAB
 export async function updateStudentProfile(id: string, formData: FormData) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   
+  const fullName = formData.get('fullName') as string;
+  const phoneNumber = formData.get('phoneNumber') as string;
+  const studentClass = formData.get('class') as string;
+  const institute = formData.get('institute') as string;
+
   const customName = formData.get('customName') as string;
   const customClass = formData.get('customClass') as string;
   const customInstitute = formData.get('customInstitute') as string;
 
+  const updateData: Record<string, any> = {
+    full_name: fullName,
+    phone_number: phoneNumber || null,
+    class: studentClass || null,
+    institute: institute || null,
+    admin_custom_name: customName || null,
+    admin_custom_class: customClass || null,
+    admin_custom_institute: customInstitute || null,
+  };
+
   const { error } = await supabase
     .from('profiles')
-    .update({
-      admin_custom_name: customName || null,
-      admin_custom_class: customClass || null,
-      admin_custom_institute: customInstitute || null,
-    })
+    .update(updateData)
     .eq('id', id);
 
-  if (error) return { error: 'Failed to update profile' };
+  if (error) {
+    console.error("updateStudentProfile error:", error);
+    return { error: 'Failed to update profile: ' + error.message };
+  }
   
   revalidatePath('/admin/dashboard/students');
   return { success: true };
@@ -28,11 +42,8 @@ export async function updateStudentProfile(id: string, formData: FormData) {
 
 // ATTENDANCE TAB
 export async function markStudentAttendance(studentId: string, date: string, type: 'onsite' | 'online' | 'absent') {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   
-  // Upsert attendance for the date
-  // Since absent isn't in schema ['onsite', 'online'], we might just delete or store completed=false
-  // If absent, we can set completed = false and class_type = null or keep it onsite/online but completed=false
   const isCompleted = type !== 'absent';
   const classType = type === 'absent' ? 'onsite' : type; 
 
@@ -45,7 +56,21 @@ export async function markStudentAttendance(studentId: string, date: string, typ
       completed: isCompleted
     }, { onConflict: 'student_id, date' });
 
-  if (error) return { error: 'Failed to mark attendance' };
+  if (error) return { error: 'Failed to mark attendance: ' + error.message };
+
+  revalidatePath('/admin/dashboard/students');
+  revalidatePath('/admin/dashboard/attendance');
+  return { success: true };
+}
+
+export async function deleteStudentAttendance(id: string) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('attendance')
+    .delete()
+    .eq('id', id);
+
+  if (error) return { error: 'Failed to delete attendance record: ' + error.message };
 
   revalidatePath('/admin/dashboard/students');
   revalidatePath('/admin/dashboard/attendance');
@@ -54,18 +79,33 @@ export async function markStudentAttendance(studentId: string, date: string, typ
 
 // RESOURCE SHARE TAB
 export async function createResourceFolder(studentId: string, name: string) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { error } = await supabase
     .from('resource_folders')
     .insert({ student_id: studentId, name });
 
-  if (error) return { error: 'Failed to create folder' };
+  if (error) return { error: 'Failed to create folder: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+export async function deleteResourceFolder(folderId: string) {
+  const supabase = await createAdminClient();
+  // Delete resources in folder first
+  await supabase.from('resources').delete().eq('folder_id', folderId);
+
+  const { error } = await supabase
+    .from('resource_folders')
+    .delete()
+    .eq('id', folderId);
+
+  if (error) return { error: 'Failed to delete folder: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
 
 export async function addResource(studentId: string, folderId: string, folderName: string, formData: FormData) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   
   const subject = formData.get('subject') as string;
   const drive_link = formData.get('drive_link') as string;
@@ -80,11 +120,11 @@ export async function addResource(studentId: string, folderId: string, folderNam
       folder_name: folderName,
       subject,
       drive_link,
-      thumbnail_url,
-      note
+      thumbnail_url: thumbnail_url || null,
+      note: note || null
     });
 
-  if (error) return { error: 'Failed to add resource' };
+  if (error) return { error: 'Failed to add resource: ' + error.message };
   
   // Create notification for student
   await supabase.from('notifications').insert({
@@ -97,14 +137,26 @@ export async function addResource(studentId: string, folderId: string, folderNam
   return { success: true };
 }
 
+export async function deleteResource(resourceId: string) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('resources')
+    .delete()
+    .eq('id', resourceId);
+
+  if (error) return { error: 'Failed to delete resource: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
 // SENT NOTICE TAB
 export async function sendNotice(studentId: string, title: string, content: string) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { error } = await supabase
     .from('notices')
     .insert({ student_id: studentId, title, content });
 
-  if (error) return { error: 'Failed to send notice' };
+  if (error) return { error: 'Failed to send notice: ' + error.message };
   
   await supabase.from('notifications').insert({
     student_id: studentId,
@@ -117,20 +169,68 @@ export async function sendNotice(studentId: string, title: string, content: stri
 }
 
 export async function deleteNotice(id: string) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { error } = await supabase
     .from('notices')
     .delete()
     .eq('id', id);
 
-  if (error) return { error: 'Failed to delete notice' };
+  if (error) return { error: 'Failed to delete notice: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
 
 // PAYMENT TAB
+export async function addPaymentCycle(
+  studentId: string, 
+  cycleNumber: number, 
+  totalClassesCount: number, 
+  cycleClassLimit: number, 
+  status: 'due' | 'completed'
+) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('payment_cycles')
+    .insert({
+      student_id: studentId,
+      cycle_number: cycleNumber,
+      total_classes_count: totalClassesCount,
+      cycle_class_limit: cycleClassLimit,
+      payment_status: status,
+      paid_at: status === 'completed' ? new Date().toISOString() : null
+    });
+
+  if (error) return { error: 'Failed to add payment cycle: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+export async function updatePaymentCycle(
+  cycleId: string, 
+  cycleNumber: number, 
+  totalClassesCount: number, 
+  cycleClassLimit: number, 
+  status: 'due' | 'completed'
+) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('payment_cycles')
+    .update({
+      cycle_number: cycleNumber,
+      total_classes_count: totalClassesCount,
+      cycle_class_limit: cycleClassLimit,
+      payment_status: status,
+      paid_at: status === 'completed' ? new Date().toISOString() : null
+    })
+    .eq('id', cycleId);
+
+  if (error) return { error: 'Failed to update payment cycle: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
 export async function updatePaymentCycleStatus(cycleId: string, status: 'due' | 'completed') {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { error } = await supabase
     .from('payment_cycles')
     .update({ 
@@ -139,49 +239,67 @@ export async function updatePaymentCycleStatus(cycleId: string, status: 'due' | 
     })
     .eq('id', cycleId);
 
-  if (error) return { error: 'Failed to update payment status' };
+  if (error) return { error: 'Failed to update payment status: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+export async function deletePaymentCycle(cycleId: string) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('payment_cycles')
+    .delete()
+    .eq('id', cycleId);
+
+  if (error) return { error: 'Failed to delete payment cycle: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
 
 export async function togglePaymentAlert(studentId: string, isAlertEnabled: boolean) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { error } = await supabase
     .from('profiles')
     .update({ due_payment_alert: isAlertEnabled })
     .eq('id', studentId);
 
-  if (error) return { error: 'Failed to toggle alert' };
+  if (error) return { error: 'Failed to toggle alert: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
 
 // ACTION TAB
 export async function setAccountStatus(id: string, status: 'active' | 'paused') {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { error } = await supabase
     .from('profiles')
     .update({ account_status: status })
     .eq('id', id);
 
-  if (error) return { error: 'Failed to update account status' };
+  if (error) return { error: 'Failed to update account status: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
 
 export async function deleteStudentAccount(id: string) {
-  const supabase = await createClient();
-  // Cascading deletes should handle the rest if set up in DB
+  const supabase = await createAdminClient();
+  
+  // 1. Delete from auth.users (if user exists)
+  try {
+    await supabase.auth.admin.deleteUser(id);
+  } catch (authErr) {
+    console.warn("Auth user deletion warning:", authErr);
+  }
+
+  // 2. Delete profile record
   const { error } = await supabase
     .from('profiles')
     .delete()
     .eq('id', id);
 
-  if (error) return { error: 'Failed to delete account' };
-  
-  // Note: To completely delete auth.users, you'd need admin client. 
-  // For this scope, deleting the profile is sufficient if foreign keys cascade.
+  if (error) return { error: 'Failed to delete profile: ' + error.message };
 
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
+

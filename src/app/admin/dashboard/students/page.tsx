@@ -4,11 +4,12 @@ import { createAdminClient } from '@/lib/supabase/server';
 export default async function StudentsPage() {
   const supabase = await createAdminClient();
 
-  // Fetch approved students
+  // Fetch approved students (excluding admin profiles)
   const { data: students } = await supabase
     .from('profiles')
     .select('*')
     .eq('is_approved', true)
+    .neq('role', 'admin')
     .order('created_at', { ascending: false });
 
   // Pre-fetch related data for these students to pass to the client component

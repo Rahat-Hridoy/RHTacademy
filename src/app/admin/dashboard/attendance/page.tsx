@@ -8,6 +8,7 @@ export default async function AttendancePage() {
     .from('profiles')
     .select('id, full_name, class, admin_custom_name, admin_custom_class')
     .eq('is_approved', true)
+    .neq('role', 'admin')
     .order('created_at', { ascending: false });
 
   const { data: attendance } = await supabase
