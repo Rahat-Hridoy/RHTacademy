@@ -1,0 +1,694 @@
+import { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowLeft, Bell, Building2, Check, ChevronLeft, ChevronRight, Edit3, Eye, FileImage, Folder, Globe2, Grid3X3, Inbox, Landmark, Link2, List, Mail, Pause, Phone, Plus, Search, Trash2, Upload, UserRound, Users, X } from 'lucide-react';
+import { AppSidebar, type AdminSection } from './AppSidebar';
+type RequestFilter = 'All' | 'Registration' | 'Booking' | 'Contact';
+type ViewMode = 'list' | 'grid';
+type StudentTab = 'Profile' | 'Attendance' | 'Resource Share' | 'Sent Notice' | 'Payment' | 'Action';
+type LandingTab = 'About Me' | 'Booking Card' | 'Schedule';
+type PaymentCycleSize = '8 Classes' | '12 Classes';
+type ClassMark = 'Onsite' | 'Online' | 'Not Taken';
+type CycleStatus = 'Due' | 'Completed';
+type Student = {
+  id: string;
+  initials: string;
+  name: string;
+  className: string;
+  institute: string;
+  email: string;
+  phone: string;
+  gender: string;
+  createdAt: string;
+  status: 'Active' | 'Paused';
+  tone: string;
+};
+type RequestRow = {
+  id: string;
+  type: 'Registration' | 'Booking' | 'Contact';
+  name: string;
+  email: string;
+  phone: string;
+  date: string;
+  timestamp: string;
+  status: 'Pending' | 'Approved' | 'Refused' | 'Contacted';
+  detail: string;
+};
+type Notice = {
+  id: string;
+  title: string;
+  date: string;
+  description: string;
+};
+type PaymentCycle = {
+  id: string;
+  cycle: string;
+  total: string;
+  limit: string;
+  status: CycleStatus;
+  paidDate: string;
+  dates: string[];
+};
+type AttendanceRecord = {
+  id: string;
+  date: string;
+  type: 'Onsite' | 'Online';
+};
+const requestFilters: RequestFilter[] = ['All', 'Registration', 'Booking', 'Contact'];
+const studentTabs: StudentTab[] = ['Profile', 'Attendance', 'Resource Share', 'Sent Notice', 'Payment', 'Action'];
+const landingTabs: LandingTab[] = ['About Me', 'Booking Card', 'Schedule'];
+const weekdays = [{
+  id: 'mon',
+  label: 'Mon'
+}, {
+  id: 'tue',
+  label: 'Tue'
+}, {
+  id: 'wed',
+  label: 'Wed'
+}, {
+  id: 'thu',
+  label: 'Thu'
+}, {
+  id: 'fri',
+  label: 'Fri'
+}, {
+  id: 'sat',
+  label: 'Sat'
+}, {
+  id: 'sun',
+  label: 'Sun'
+}];
+const students: Student[] = [{
+  id: 's1',
+  initials: 'AR',
+  name: 'Amelia Rodriguez',
+  className: 'HSC Physics',
+  institute: 'Northbridge Academy',
+  email: 'amelia.rodriguez@mail.com',
+  phone: '+880 1712 442 019',
+  gender: 'Female',
+  createdAt: '12 Mar 2024',
+  status: 'Active',
+  tone: 'bg-blue-100 text-blue-800'
+}, {
+  id: 's2',
+  initials: 'JW',
+  name: 'James Wilson',
+  className: 'SSC Mathematics',
+  institute: 'Westfield College',
+  email: 'james.wilson@mail.com',
+  phone: '+880 1811 786 230',
+  gender: 'Male',
+  createdAt: '19 Mar 2024',
+  status: 'Active',
+  tone: 'bg-teal-100 text-teal-800'
+}, {
+  id: 's3',
+  initials: 'SK',
+  name: 'Sofia Kim',
+  className: 'HSC Chemistry',
+  institute: 'Riverside Institute',
+  email: 'sofia.kim@mail.com',
+  phone: '+880 1618 092 553',
+  gender: 'Female',
+  createdAt: '02 Apr 2024',
+  status: 'Paused',
+  tone: 'bg-violet-100 text-violet-800'
+}, {
+  id: 's4',
+  initials: 'DM',
+  name: 'Daniel Martins',
+  className: 'SSC Biology',
+  institute: 'Oakmont University',
+  email: 'daniel.martins@mail.com',
+  phone: '+880 1913 505 880',
+  gender: 'Male',
+  createdAt: '17 Apr 2024',
+  status: 'Active',
+  tone: 'bg-amber-100 text-amber-800'
+}, {
+  id: 's5',
+  initials: 'MP',
+  name: 'Mia Patel',
+  className: 'HSC Mathematics',
+  institute: 'Central Scholars',
+  email: 'mia.patel@mail.com',
+  phone: '+880 1533 711 621',
+  gender: 'Female',
+  createdAt: '28 Apr 2024',
+  status: 'Active',
+  tone: 'bg-rose-100 text-rose-800'
+}];
+const latestRequests: RequestRow[] = [{
+  id: 'r1',
+  type: 'Registration',
+  name: 'Liam Thompson',
+  email: 'liam.t@example.com',
+  phone: '+880 1710 555 182',
+  date: 'Jun 18, 2024',
+  timestamp: '12 minutes ago',
+  status: 'Pending',
+  detail: 'Interested in HSC Physics batch'
+}, {
+  id: 'r2',
+  type: 'Booking',
+  name: 'Grace Okafor',
+  email: 'grace.o@example.com',
+  phone: '+880 1812 555 430',
+  date: 'Jun 18, 2024',
+  timestamp: '38 minutes ago',
+  status: 'Pending',
+  detail: 'Subject: Chemistry · Slot: Tue 4:30 PM'
+}, {
+  id: 'r3',
+  type: 'Contact',
+  name: 'Henry Davis',
+  email: 'henry.d@example.com',
+  phone: '+880 1617 555 812',
+  date: 'Jun 18, 2024',
+  timestamp: '1 hour ago',
+  status: 'Pending',
+  detail: 'Could you share details about available evening classes and admission requirements?'
+}];
+const historyRows: RequestRow[] = [{
+  id: 'h1',
+  type: 'Registration',
+  name: 'Olivia Chen',
+  email: 'olivia.c@example.com',
+  phone: '+880 1711 551 300',
+  date: 'Jun 17, 2024',
+  timestamp: 'Yesterday',
+  status: 'Approved',
+  detail: 'HSC Biology'
+}, {
+  id: 'h2',
+  type: 'Booking',
+  name: 'Noah Williams',
+  email: 'noah.w@example.com',
+  phone: '+880 1813 222 734',
+  date: 'Jun 16, 2024',
+  timestamp: '2 days ago',
+  status: 'Contacted',
+  detail: 'SSC math consultation'
+}, {
+  id: 'h3',
+  type: 'Contact',
+  name: 'Ava Rahman',
+  email: 'ava.r@example.com',
+  phone: '+880 1516 819 022',
+  date: 'Jun 15, 2024',
+  timestamp: '3 days ago',
+  status: 'Pending',
+  detail: 'Schedule query'
+}, {
+  id: 'h4',
+  type: 'Registration',
+  name: 'Ethan Brooks',
+  email: 'ethan.b@example.com',
+  phone: '+880 1917 620 410',
+  date: 'Jun 14, 2024',
+  timestamp: '4 days ago',
+  status: 'Refused',
+  detail: 'Batch full'
+}, {
+  id: 'h5',
+  type: 'Booking',
+  name: 'Nora Islam',
+  email: 'nora.i@example.com',
+  phone: '+880 1522 908 114',
+  date: 'Jun 12, 2024',
+  timestamp: '6 days ago',
+  status: 'Contacted',
+  detail: 'HSC admission call'
+}];
+const attendanceRecords: AttendanceRecord[] = [{
+  id: 'a1',
+  date: '03 Jun 2024',
+  type: 'Onsite'
+}, {
+  id: 'a2',
+  date: '05 Jun 2024',
+  type: 'Online'
+}, {
+  id: 'a3',
+  date: '10 Jun 2024',
+  type: 'Onsite'
+}, {
+  id: 'a4',
+  date: '12 Jun 2024',
+  type: 'Online'
+}];
+const paymentCycles: PaymentCycle[] = [{
+  id: 'p1',
+  cycle: 'Cycle #4',
+  total: '6 classes',
+  limit: '8 Classes',
+  status: 'Due',
+  paidDate: 'Pending',
+  dates: ['May 21', 'May 24', 'May 28', 'May 31', 'Jun 03', 'Jun 06']
+}, {
+  id: 'p2',
+  cycle: 'Cycle #3',
+  total: '8 classes',
+  limit: '8 Classes',
+  status: 'Completed',
+  paidDate: 'May 18, 2024',
+  dates: ['Apr 18', 'Apr 22', 'Apr 25', 'Apr 29', 'May 02', 'May 06', 'May 09', 'May 13']
+}, {
+  id: 'p3',
+  cycle: 'Cycle #2',
+  total: '8 classes',
+  limit: '8 Classes',
+  status: 'Completed',
+  paidDate: 'Apr 12, 2024',
+  dates: ['Mar 14', 'Mar 18', 'Mar 21', 'Mar 25', 'Mar 28', 'Apr 01', 'Apr 04', 'Apr 08']
+}];
+const calendarMarkers = [{
+  id: 'd03',
+  day: 3,
+  type: 'Onsite'
+}, {
+  id: 'd05',
+  day: 5,
+  type: 'Online'
+}, {
+  id: 'd10',
+  day: 10,
+  type: 'Onsite'
+}, {
+  id: 'd12',
+  day: 12,
+  type: 'Online'
+}, {
+  id: 'd17',
+  day: 17,
+  type: 'Onsite'
+}, {
+  id: 'd19',
+  day: 19,
+  type: 'Online'
+}, {
+  id: 'd24',
+  day: 24,
+  type: 'Onsite'
+}, {
+  id: 'd26',
+  day: 26,
+  type: 'Onsite'
+}];
+const folderCards = [{
+  id: 'f1',
+  name: 'HSC Physics · Motion',
+  count: '14 files'
+}, {
+  id: 'f2',
+  name: 'Model Tests',
+  count: '8 files'
+}, {
+  id: 'f3',
+  name: 'Board Question Archive',
+  count: '31 files'
+}];
+const resourceCards = [{
+  id: 'res1',
+  title: 'Vector practice sheet',
+  subject: 'Physics',
+  link: 'drive.google.com/vector-practice',
+  note: 'Twenty carefully selected problems for the next onsite class.'
+}, {
+  id: 'res2',
+  title: 'Chapter recap video',
+  subject: 'Mechanics',
+  link: 'drive.google.com/mechanics-recap',
+  note: 'Short video summary with timestamps for revision.'
+}];
+const initialNotices: Notice[] = [{
+  id: 'n1',
+  title: 'Bring calculator for model test',
+  date: '18 Jun 2024',
+  description: 'Please bring a scientific calculator and your previous worksheet for the upcoming model test review session.'
+}, {
+  id: 'n2',
+  title: 'Schedule adjusted for Eid week',
+  date: '14 Jun 2024',
+  description: 'Your Thursday class will move to Saturday morning this week. The online link will be sent one hour before class.'
+}, {
+  id: 'n3',
+  title: 'New resources shared',
+  date: '10 Jun 2024',
+  description: 'A new folder containing vector notes, board questions, and answer keys has been shared in your resource area.'
+}];
+const trackerDays = [{
+  id: 'td1',
+  date: '18 Jun 2024'
+}, {
+  id: 'td2',
+  date: '19 Jun 2024'
+}, {
+  id: 'td3',
+  date: '20 Jun 2024'
+}, {
+  id: 'td4',
+  date: '21 Jun 2024'
+}];
+const landingSlots = [{
+  id: 'slot1',
+  value: '9:00 AM - 10:00 AM'
+}, {
+  id: 'slot2',
+  value: '4:30 PM - 5:30 PM'
+}, {
+  id: 'slot3',
+  value: '7:00 PM - 8:00 PM'
+}];
+const statusBadge = (status: string) => {
+  if (status === 'Approved' || status === 'Active' || status === 'Completed') {
+    return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  }
+  if (status === 'Refused' || status === 'Due') {
+    return 'bg-red-50 text-red-700 ring-red-200';
+  }
+  if (status === 'Contacted') {
+    return 'bg-blue-50 text-blue-700 ring-blue-200';
+  }
+  if (status === 'Paused') {
+    return 'bg-amber-50 text-amber-700 ring-amber-200';
+  }
+  return 'bg-yellow-50 text-yellow-700 ring-yellow-200';
+};
+export const AdminDashboard = () => {
+  const [activeSection, setActiveSection] = useState<AdminSection>('students');
+  const [requestFilter, setRequestFilter] = useState<RequestFilter>('All');
+  const [studentView, setStudentView] = useState<ViewMode>('list');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student>(students[0]);
+  const [detailOpen, setDetailOpen] = useState(true);
+  const [studentTab, setStudentTab] = useState<StudentTab>('Profile');
+  const [notice, setNotice] = useState('');
+  const [attendanceFormOpen, setAttendanceFormOpen] = useState(false);
+  const [newResourceOpen, setNewResourceOpen] = useState(false);
+  const [notices, setNotices] = useState<Notice[]>(initialNotices);
+  const [expandedNotice, setExpandedNotice] = useState('n1');
+  const [cycleSize, setCycleSize] = useState<PaymentCycleSize>('8 Classes');
+  const [expandedCycle, setExpandedCycle] = useState('p1');
+  const [paymentAlert, setPaymentAlert] = useState(true);
+  const [accountPaused, setAccountPaused] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(true);
+  const [trackerDate, setTrackerDate] = useState('18 Jun 2024');
+  const [classMarks, setClassMarks] = useState<Record<string, ClassMark>>({
+    s1: 'Onsite',
+    s2: 'Online',
+    s3: 'Not Taken',
+    s4: 'Onsite',
+    s5: 'Online'
+  });
+  const [landingTab, setLandingTab] = useState<LandingTab>('About Me');
+  const filteredStudents = useMemo(() => students.filter(student => `${student.name} ${student.className} ${student.institute}`.toLowerCase().includes(studentSearch.toLowerCase())), [studentSearch]);
+  const title = activeSection === 'requests' ? 'Requests Hub' : activeSection === 'students' ? 'Student Management' : activeSection === 'attendance' ? 'Attendance Tracker' : activeSection === 'payments' ? 'Payment Methods' : 'Landing Page Controls';
+  const presentCount = Object.values(classMarks).filter(mark => mark !== 'Not Taken').length;
+  const onlineCount = Object.values(classMarks).filter(mark => mark === 'Online').length;
+  const onsiteCount = Object.values(classMarks).filter(mark => mark === 'Onsite').length;
+  const navigateTo = (section: AdminSection) => {
+    setActiveSection(section);
+    if (section === 'students') {
+      setDetailOpen(true);
+      setStudentTab('Profile');
+    }
+  };
+  const selectStudent = (student: Student) => {
+    setSelectedStudent(student);
+    setDetailOpen(true);
+    setStudentTab('Profile');
+  };
+  return <div className="min-h-screen bg-[#F9FAFB] font-sans text-slate-900">
+      <AppSidebar activeSection={activeSection} onNavigate={navigateTo} onLogout={() => setNotice('Admin session closed safely.')} />
+
+      <main className="min-h-screen lg:ml-[240px]">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#0D9488]">
+                <span>RHTacademy / Admin</span>
+              </p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                <span>{title}</span>
+              </h1>
+            </div>
+            <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white py-1.5 pl-2 pr-4 shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1E40AF] text-sm font-black text-white">
+                <span>RH</span>
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-bold text-slate-900">
+                  <span>Admin User</span>
+                </p>
+                <p className="text-xs font-medium text-slate-500">
+                  <span>admin@rhtacademy.com</span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <nav className="mt-4 flex gap-2 overflow-x-auto lg:hidden" aria-label="Mobile admin sections">
+            <button type="button" onClick={() => navigateTo('requests')} className={`rounded-full px-4 py-2 text-sm font-bold ${activeSection === 'requests' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-700'}`}><span>Requests</span></button>
+            <button type="button" onClick={() => navigateTo('students')} className={`rounded-full px-4 py-2 text-sm font-bold ${activeSection === 'students' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-700'}`}><span>Students</span></button>
+            <button type="button" onClick={() => navigateTo('attendance')} className={`rounded-full px-4 py-2 text-sm font-bold ${activeSection === 'attendance' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-700'}`}><span>Attendance</span></button>
+            <button type="button" onClick={() => navigateTo('payments')} className={`rounded-full px-4 py-2 text-sm font-bold ${activeSection === 'payments' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-700'}`}><span>Payments</span></button>
+            <button type="button" onClick={() => navigateTo('landing')} className={`rounded-full px-4 py-2 text-sm font-bold ${activeSection === 'landing' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-700'}`}><span>Landing</span></button>
+          </nav>
+        </header>
+
+        <div className="px-4 py-6 sm:px-6 lg:px-8">
+          {notice && <div className="mb-5 flex items-center justify-between rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800" role="status">
+              <span>{notice}</span>
+              <button type="button" aria-label="Dismiss notification" onClick={() => setNotice('')} className="rounded-full p-1 hover:bg-teal-100">
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>}
+
+          {activeSection === 'requests' && <section aria-labelledby="requests-title" className="space-y-7">
+              <div className="flex flex-col justify-between gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center">
+                <div>
+                  <h2 id="requests-title" className="text-2xl font-black tracking-tight text-slate-950"><span>Requests Hub</span></h2>
+                  <p className="mt-1 text-sm text-slate-500"><span>Review new enquiries and admission conversations.</span></p>
+                </div>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Filter requests">
+                  {requestFilters.map(filter => <button key={filter} type="button" onClick={() => setRequestFilter(filter)} className={`rounded-full px-4 py-2 text-sm font-bold transition ${requestFilter === filter ? 'bg-[#1E40AF] text-white shadow-sm' : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-white'}`}>
+                      <span>{filter}</span>
+                    </button>)}
+                </div>
+              </div>
+
+              <section aria-labelledby="incoming-title">
+                <h3 id="incoming-title" className="mb-4 text-lg font-black text-slate-950"><span>Latest Incoming</span></h3>
+                {latestRequests.length > 0 ? <div className="grid gap-4 xl:grid-cols-3">
+                    {latestRequests.map(request => <article key={request.id} className={`rounded-3xl border border-slate-200 bg-white p-5 shadow-sm ${request.type === 'Registration' ? 'border-l-4 border-l-[#1E40AF]' : request.type === 'Booking' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-orange-400'}`}>
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" aria-label="New request" />
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${request.type === 'Registration' ? 'bg-blue-50 text-blue-700' : request.type === 'Booking' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}`}>{request.type}</span>
+                          </div>
+                          <p className="text-xs font-bold text-slate-400"><span>{request.timestamp}</span></p>
+                        </div>
+                        <h4 className="text-xl font-black text-slate-950"><span>{request.name}</span></h4>
+                        <div className="mt-3 space-y-2 text-sm text-slate-600">
+                          <p className="flex items-center gap-2"><Mail size={15} aria-hidden="true" /><span>{request.email}</span></p>
+                          <p className="flex items-center gap-2"><Phone size={15} aria-hidden="true" /><span>{request.phone}</span></p>
+                          <p className="line-clamp-2 text-slate-500"><span>{request.detail}</span></p>
+                        </div>
+                        <div className="mt-5 flex gap-2">
+                          {request.type === 'Registration' && <div className="flex w-full gap-2">
+                              <button type="button" onClick={() => setNotice('Registration approved.')} className="flex-1 rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-black text-white"><span>Confirm</span></button>
+                              <button type="button" onClick={() => setNotice('Registration refused.')} className="flex-1 rounded-xl border border-red-200 px-3 py-2.5 text-sm font-black text-red-600"><span>Refuse</span></button>
+                            </div>}
+                          {request.type === 'Booking' && <button type="button" onClick={() => setNotice('Booking marked as contacted.')} className="w-full rounded-xl bg-[#0D9488] px-3 py-2.5 text-sm font-black text-white"><span>Mark Contacted</span></button>}
+                          {request.type === 'Contact' && <button type="button" onClick={() => setNotice('Full contact message opened.')} className="w-full rounded-xl bg-[#1E40AF] px-3 py-2.5 text-sm font-black text-white"><span>View Full</span></button>}
+                        </div>
+                      </article>)}
+                  </div> : <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                    <Inbox className="mx-auto text-slate-300" size={42} aria-hidden="true" />
+                    <h4 className="mt-4 text-lg font-black text-slate-900"><span>No new requests at this time</span></h4>
+                    <p className="mt-1 text-sm text-slate-500"><span>Fresh registration, booking, and contact requests will appear here.</span></p>
+                  </div>}
+              </section>
+
+              <section aria-labelledby="history-title" className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
+                <div className="border-b border-slate-200 px-5 py-4">
+                  <h3 id="history-title" className="text-lg font-black"><span>History Table</span></h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Type</th><th className="px-5 py-3">Name</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Date</th><th className="px-5 py-3">Status badge</th><th className="px-5 py-3">Action</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {historyRows.map(row => <tr key={row.id} className="hover:bg-slate-50/80"><td className="px-5 py-4 font-bold text-slate-700">{row.type}</td><td className="px-5 py-4 font-bold text-slate-950">{row.name}</td><td className="px-5 py-4 text-slate-500">{row.email}</td><td className="px-5 py-4 text-slate-500">{row.date}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(row.status)}`}>{row.status}</span></td><td className="px-5 py-4"><button type="button" className="font-black text-[#1E40AF] hover:underline"><span>View</span></button></td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4"><p className="text-xs font-semibold text-slate-500"><span>Showing 1–5 of 15 requests</span></p><nav className="flex items-center gap-1" aria-label="Request pagination"><button type="button" aria-label="Previous page" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><ChevronLeft size={16} /></button><button type="button" className="rounded-lg bg-[#1E40AF] px-3 py-1.5 text-sm font-black text-white"><span>1</span></button><button type="button" className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-600 hover:bg-slate-100"><span>2</span></button><button type="button" className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-600 hover:bg-slate-100"><span>3</span></button><span className="px-1 text-slate-400">…</span><button type="button" aria-label="Next page" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><ChevronRight size={16} /></button></nav></div>
+              </section>
+            </section>}
+
+          {activeSection === 'students' && detailOpen && <section aria-labelledby="student-detail-title" className="space-y-5">
+              <button type="button" onClick={() => setDetailOpen(false)} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[#1E40AF] shadow-sm hover:bg-blue-50">
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span>Back to Students</span>
+              </button>
+              <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-7">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className={`flex h-24 w-24 items-center justify-center rounded-full text-3xl font-black ${selectedStudent.tone}`}><span>{selectedStudent.initials}</span></div>
+                    <div>
+                      <h2 id="student-detail-title" className="text-3xl font-black tracking-tight text-slate-950"><span>{selectedStudent.name}</span></h2>
+                      <p className="mt-1 text-sm font-bold text-slate-600"><span>{selectedStudent.className} · {selectedStudent.institute}</span></p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-500"><span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(accountPaused ? 'Paused' : selectedStudent.status)}`}>{accountPaused ? 'Paused' : selectedStudent.status}</span><span className="inline-flex items-center gap-1"><Mail size={14} />{selectedStudent.email}</span><span className="inline-flex items-center gap-1"><Phone size={14} />{selectedStudent.phone}</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6 overflow-x-auto border-b border-slate-200">
+                  <div className="flex min-w-max gap-1">
+                    {studentTabs.map(tab => <button key={tab} type="button" onClick={() => setStudentTab(tab)} className={`border-b-2 px-4 py-3 text-sm font-black transition ${studentTab === tab ? 'border-[#1E40AF] text-[#1E40AF]' : 'border-transparent text-slate-500 hover:text-slate-950'}`}><span>{tab}</span></button>)}
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  {studentTab === 'Profile' && <div className="grid gap-6 lg:grid-cols-2">
+                      <section aria-labelledby="original-profile" className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                        <h3 id="original-profile" className="text-lg font-black"><span>Original Student Profile</span></h3>
+                        <dl className="mt-4 grid gap-3 text-sm">
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Original Name</dt><dd className="font-bold text-slate-950">{selectedStudent.name}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Class</dt><dd className="font-bold text-slate-950">{selectedStudent.className}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Institute</dt><dd className="font-bold text-slate-950">{selectedStudent.institute}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Email</dt><dd className="font-bold text-slate-950">{selectedStudent.email}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Phone</dt><dd className="font-bold text-slate-950">{selectedStudent.phone}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Gender</dt><dd className="font-bold text-slate-950">{selectedStudent.gender}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="font-bold text-slate-500">Created At</dt><dd className="font-bold text-slate-950">{selectedStudent.createdAt}</dd></div>
+                        </dl>
+                      </section>
+                      <form className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" onSubmit={event => {
+                  event.preventDefault();
+                  setNotice('Admin-only student view saved.');
+                }}>
+                        <h3 className="text-lg font-black"><span>Admin View Overrides</span></h3>
+                        <div className="mt-4 space-y-4">
+                          <label className="block text-sm font-black text-slate-700"><span>Custom Name</span><input defaultValue={selectedStudent.name} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:ring-2 focus:ring-blue-200" /></label>
+                          <label className="block text-sm font-black text-slate-700"><span>Custom Class</span><input defaultValue={selectedStudent.className} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:ring-2 focus:ring-blue-200" /></label>
+                          <label className="block text-sm font-black text-slate-700"><span>Custom Institute</span><input defaultValue={selectedStudent.institute} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 font-semibold outline-none focus:ring-2 focus:ring-blue-200" /></label>
+                        </div>
+                        <p className="mt-4 rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-800"><span>These changes only affect your admin view and do not modify the student's actual profile.</span></p>
+                        <button type="submit" className="mt-4 rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Save Admin View</span></button>
+                      </form>
+                    </div>}
+
+                  {studentTab === 'Attendance' && <div className="space-y-6">
+                      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h3 className="text-xl font-black"><span>June 2024 Attendance</span></h3><p className="text-sm text-slate-500"><span>Green marks onsite, sky-blue marks online.</span></p></div><button type="button" onClick={() => setAttendanceFormOpen(!attendanceFormOpen)} className="rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Mark Attendance</span></button></div>
+                      {attendanceFormOpen && <form className="grid gap-3 rounded-3xl border border-blue-100 bg-blue-50 p-4 sm:grid-cols-4" onSubmit={event => {
+                  event.preventDefault();
+                  setNotice('Attendance confirmed and payment count updated.');
+                }}><label className="text-sm font-black text-slate-700"><span>Date</span><input type="date" className="mt-2 w-full rounded-xl border border-blue-100 px-3 py-2" /></label><div className="text-sm font-black text-slate-700"><span>Class Type</span><div className="mt-2 flex rounded-xl bg-white p-1"><button type="button" className="flex-1 rounded-lg bg-[#0D9488] px-3 py-2 text-white"><span>Onsite</span></button><button type="button" className="flex-1 rounded-lg px-3 py-2 text-slate-600"><span>Online</span></button></div></div><label className="text-sm font-black text-slate-700"><span>Schedule Time</span><input type="time" defaultValue="16:30" className="mt-2 w-full rounded-xl border border-blue-100 px-3 py-2" /></label><button type="submit" className="self-end rounded-xl bg-[#1E40AF] px-4 py-2.5 text-sm font-black text-white"><span>Confirm</span></button></form>}
+                      <div className="grid grid-cols-7 overflow-hidden rounded-3xl border border-slate-200 bg-white text-center text-sm shadow-sm">
+                        {weekdays.map(day => <div key={day.id} className="bg-slate-50 px-2 py-3 font-black text-slate-500"><span>{day.label}</span></div>)}
+                        {Array.from({
+                    length: 30
+                  }, (_, day) => day + 1).map(day => {
+                    const marker = calendarMarkers.find(item => item.day === day);
+                    return <div key={`cal-${day}`} className="min-h-20 border-t border-slate-100 px-2 py-3"><span className="font-black text-slate-700">{day}</span>{marker && <span className={`mx-auto mt-2 block h-3 w-3 rounded-full ${marker.type === 'Onsite' ? 'bg-emerald-500' : 'bg-sky-400'}`} aria-label={marker.type} />}</div>;
+                  })}
+                      </div>
+                      <div className="grid gap-3 lg:grid-cols-[1fr_280px]"><div className="rounded-3xl border border-slate-200 p-4"><h4 className="font-black"><span>Attendance history</span></h4><div className="mt-3 space-y-2">{attendanceRecords.map(record => <div key={record.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3"><span className="font-bold text-slate-700">{record.date}</span><span className={`rounded-full px-2.5 py-1 text-xs font-black ${record.type === 'Onsite' ? 'bg-emerald-50 text-emerald-700' : 'bg-sky-50 text-sky-700'}`}>{record.type} · Completed</span></div>)}</div></div><form onSubmit={event => {
+                    event.preventDefault();
+                    setNotice('Schedule time saved.');
+                  }} className="rounded-3xl border border-slate-200 p-4"><h4 className="font-black"><span>Schedule Time</span></h4><input type="time" defaultValue="16:30" className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2" /><button type="submit" className="mt-3 w-full rounded-xl bg-[#0D9488] px-4 py-2.5 text-sm font-black text-white"><span>Set Schedule</span></button></form></div>
+                    </div>}
+
+                  {studentTab === 'Resource Share' && <div className="space-y-5">
+                      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><p className="text-sm font-black text-slate-500"><span>Resources &gt; HSC Physics</span></p><h3 className="mt-1 text-xl font-black"><span>Google Drive-style Library</span></h3></div><div className="flex gap-2"><button type="button" className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700"><span>New Folder</span></button><button type="button" onClick={() => setNewResourceOpen(true)} className="rounded-2xl bg-[#1E40AF] px-4 py-2.5 text-sm font-black text-white"><span>New Resource</span></button></div></div>
+                      {newResourceOpen && <form className="grid gap-3 rounded-3xl border border-blue-100 bg-blue-50 p-5 lg:grid-cols-2" onSubmit={event => {
+                  event.preventDefault();
+                  setNewResourceOpen(false);
+                  setNotice('Resource shared and student notification triggered.');
+                }}><input placeholder="Title" className="rounded-xl border border-blue-100 px-4 py-3" /><input placeholder="Drive Link" className="rounded-xl border border-blue-100 px-4 py-3" /><input placeholder="Thumbnail URL" className="rounded-xl border border-blue-100 px-4 py-3" /><input placeholder="Subject" className="rounded-xl border border-blue-100 px-4 py-3" /><textarea placeholder="Short Note" className="min-h-24 rounded-xl border border-blue-100 px-4 py-3 lg:col-span-2" /><button type="submit" className="rounded-xl bg-[#1E40AF] px-4 py-3 text-sm font-black text-white"><span>Share Resource</span></button></form>}
+                      <div className="grid gap-4 md:grid-cols-3">{folderCards.map(folder => <article key={folder.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><Folder className="text-amber-500" size={32} aria-hidden="true" /><h4 className="mt-4 font-black text-slate-950"><span>{folder.name}</span></h4><p className="mt-1 text-sm font-bold text-slate-500"><span>{folder.count}</span></p></article>)}</div>
+                      <div className="grid gap-4 md:grid-cols-2">{resourceCards.map(resource => <article key={resource.id} className="flex gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-2xl bg-slate-100"><FileImage className="text-slate-400" aria-hidden="true" /></div><div><span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-black text-blue-700">{resource.subject}</span><h4 className="mt-2 font-black"><span>{resource.title}</span></h4><p className="mt-1 flex items-center gap-1 text-xs font-bold text-[#1E40AF]"><Link2 size={13} /><span>{resource.link}</span></p><p className="mt-2 text-sm text-slate-500"><span>{resource.note}</span></p></div></article>)}</div>
+                    </div>}
+
+                  {studentTab === 'Sent Notice' && <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+                      <form className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" onSubmit={event => {
+                  event.preventDefault();
+                  const nextNotice = {
+                    id: `notice-${Date.now()}`,
+                    title: 'Custom notice from admin',
+                    date: 'Today',
+                    description: 'A carefully written notice has been sent to the student portal.'
+                  };
+                  setNotices(current => [nextNotice, ...current]);
+                  setNotice('Notice sent to student.');
+                }}><h3 className="text-xl font-black"><span>Send Notice</span></h3><input placeholder="Notice Title" className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3" /><textarea placeholder="Description" rows={4} className="mt-3 w-full resize-none rounded-2xl border border-slate-200 px-4 py-3" /><button type="submit" className="mt-3 rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Send Notice</span></button></form>
+                      <section aria-labelledby="previous-notices" className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h3 id="previous-notices" className="text-xl font-black"><span>Previous Notices</span></h3><div className="mt-4 space-y-3">{notices.slice(0, 5).map(item => <article key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black"><span>{item.title}</span></h4><p className="text-xs font-bold text-slate-500"><span>{item.date}</span></p></div><div className="flex gap-2"><button type="button" onClick={() => setExpandedNotice(expandedNotice === item.id ? '' : item.id)} className="rounded-lg bg-white p-2 text-[#1E40AF]"><Eye size={15} /></button><button type="button" onClick={() => setNotices(current => current.filter(noticeItem => noticeItem.id !== item.id))} className="rounded-lg bg-white p-2 text-red-600"><Trash2 size={15} /></button></div></div><p className={`${expandedNotice === item.id ? 'mt-3' : 'mt-3 line-clamp-2'} text-sm text-slate-600`}><span>{item.description}</span></p></article>)}</div><div className="mt-4 flex justify-end gap-1"><button type="button" className="rounded-lg p-2 text-slate-500"><ChevronLeft size={16} /></button><button type="button" className="rounded-lg bg-[#1E40AF] px-3 py-1.5 text-sm font-black text-white"><span>1</span></button><button type="button" className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-600"><span>2</span></button><span className="px-1 text-slate-400">…</span></div></section>
+                    </div>}
+
+                  {studentTab === 'Payment' && <div className="space-y-5">
+                      <section className="rounded-3xl border border-teal-200 bg-teal-50 p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h3 className="text-xl font-black text-slate-950"><span>Payment Cycle Configuration</span></h3><p className="mt-1 text-sm font-semibold text-teal-800"><span>Select how many completed classes create one payment cycle.</span></p></div><div className="flex rounded-2xl bg-white p-1"><button type="button" onClick={() => setCycleSize('8 Classes')} className={`rounded-xl px-4 py-2 text-sm font-black ${cycleSize === '8 Classes' ? 'bg-[#0D9488] text-white' : 'text-slate-600'}`}><span>8 Classes</span></button><button type="button" onClick={() => setCycleSize('12 Classes')} className={`rounded-xl px-4 py-2 text-sm font-black ${cycleSize === '12 Classes' ? 'bg-[#0D9488] text-white' : 'text-slate-600'}`}><span>12 Classes</span></button></div><button type="button" onClick={() => setNotice('Payment cycle saved.')} className="rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Save Cycle</span></button></div></section>
+                      <section className="space-y-3">{paymentCycles.map(cycle => <article key={cycle.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center"><div className="grid gap-2 sm:grid-cols-5 sm:items-center"><p className="font-black text-slate-950"><span>{cycle.cycle}</span></p><p className="text-sm font-bold text-slate-500"><span>{cycle.total}</span></p><p className="text-sm font-bold text-slate-500"><span>{cycle.limit}</span></p><span className={`w-fit rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(cycle.status)}`}>{cycle.status}</span><p className="text-sm font-bold text-slate-500"><span>{cycle.paidDate}</span></p></div><button type="button" onClick={() => setExpandedCycle(expandedCycle === cycle.id ? '' : cycle.id)} className="rounded-xl border border-blue-200 px-4 py-2 text-sm font-black text-[#1E40AF]"><span>Update</span></button></div>{expandedCycle === cycle.id && <div className="mt-4 grid gap-4 rounded-2xl bg-slate-50 p-4 lg:grid-cols-2"><div><p className="font-black"><span>Class dates conducted</span></p><div className="mt-2 flex flex-wrap gap-2">{cycle.dates.map(date => <span key={`${cycle.id}-${date}`} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600">{date}</span>)}</div></div><form onSubmit={event => {
+                        event.preventDefault();
+                        setNotice('Payment status updated.');
+                      }} className="grid gap-2 sm:grid-cols-3"><select className="rounded-xl border border-slate-200 px-3 py-2"><option>Due</option><option>Completed</option></select><input type="date" className="rounded-xl border border-slate-200 px-3 py-2" /><button type="submit" className="rounded-xl bg-[#1E40AF] px-3 py-2 text-sm font-black text-white"><span>Save</span></button></form></div>}</article>)}</section>
+                      <section className="flex flex-col justify-between gap-4 rounded-3xl border border-red-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center"><div className="flex gap-3"><Bell className="text-red-500" aria-hidden="true" /><div><h3 className="font-black"><span>Due Payment Alert</span></h3><p className="text-sm text-slate-500"><span>When enabled, student will see a payment due alert on their dashboard</span></p></div></div><button type="button" onClick={() => setPaymentAlert(!paymentAlert)} className={`h-8 w-14 rounded-full p-1 transition ${paymentAlert ? 'bg-red-500' : 'bg-slate-300'}`} aria-pressed={paymentAlert}><span className={`block h-6 w-6 rounded-full bg-white transition ${paymentAlert ? 'translate-x-6' : 'translate-x-0'}`} /></button></section>
+                    </div>}
+
+                  {studentTab === 'Action' && <div className="grid gap-5 lg:grid-cols-2">
+                      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h3 className="text-xl font-black"><span>Pause / Resume Account</span></h3><p className="mt-3 flex items-center gap-2 text-sm font-black text-emerald-700"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /><span>{accountPaused ? 'Account Paused' : 'Account Active'}</span></p><button type="button" onClick={() => setAccountPaused(!accountPaused)} className={`mt-5 inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-white ${accountPaused ? 'bg-emerald-600' : 'bg-amber-500'}`}>{accountPaused ? <Check size={17} /> : <Pause size={17} />}<span>{accountPaused ? 'Resume Account' : 'Pause Account'}</span></button><p className="mt-4 text-sm font-semibold text-slate-500"><span>Paused students can login but will see a restricted access page</span></p></section>
+                      <section className="rounded-3xl border border-red-200 bg-red-50 p-5"><h3 className="text-xl font-black text-red-800"><span>Delete Account</span></h3><button type="button" onClick={() => setDeletePreview(true)} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white"><Trash2 size={17} /><span>Delete Student Account</span></button>{deletePreview && <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-red-100"><div className="flex items-start gap-3"><AlertTriangle className="text-red-600" aria-hidden="true" /><div><p className="font-black text-slate-950"><span>Are you sure you want to delete this student?</span></p><p className="mt-1 text-sm text-slate-600"><span>This action cannot be undone.</span></p><div className="mt-4 flex gap-2"><button type="button" onClick={() => setDeletePreview(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700"><span>Cancel</span></button><button type="button" onClick={() => setNotice('Delete confirmation requires owner approval.')} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white"><span>Confirm Delete</span></button></div></div></div></div>}</section>
+                    </div>}
+                </div>
+              </div>
+            </section>}
+
+          {activeSection === 'students' && !detailOpen && <section aria-labelledby="students-title" className="space-y-5">
+              <div className="flex flex-col justify-between gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-end"><div><h2 id="students-title" className="text-2xl font-black"><span>Students</span></h2><p className="mt-1 text-sm text-slate-500"><span>Search, sort, and open the full student profile panel.</span></p></div><div className="flex flex-col gap-2 sm:flex-row"><label className="flex min-w-[280px] items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm"><Search size={16} /><span className="sr-only">Search students</span><input value={studentSearch} onChange={event => setStudentSearch(event.target.value)} placeholder="Search by name, class, institute…" className="w-full outline-none" /></label><select className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold"><option>Name A-Z</option><option>Date First</option><option>Date Last</option></select><div className="flex rounded-2xl border border-slate-200 p-1"><button type="button" aria-label="List View" onClick={() => setStudentView('list')} className={`rounded-xl p-3 ${studentView === 'list' ? 'bg-blue-50 text-[#1E40AF]' : 'text-slate-400'}`}><List size={17} /></button><button type="button" aria-label="Grid View" onClick={() => setStudentView('grid')} className={`rounded-xl p-3 ${studentView === 'grid' ? 'bg-blue-50 text-[#1E40AF]' : 'text-slate-400'}`}><Grid3X3 size={17} /></button></div></div></div>
+              {studentView === 'list' ? <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200"><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Avatar</th><th className="px-5 py-3">Full Name</th><th className="px-5 py-3">Class</th><th className="px-5 py-3">Institute</th><th className="px-5 py-3">Account Status</th><th className="px-5 py-3">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredStudents.map(student => <tr key={student.id}><td className="px-5 py-4"><span className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-black ${student.tone}`}>{student.initials}</span></td><td className="px-5 py-4 font-black">{student.name}</td><td className="px-5 py-4 text-slate-600">{student.className}</td><td className="px-5 py-4 text-slate-500">{student.institute}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(student.status)}`}>{student.status}</span></td><td className="px-5 py-4"><button type="button" onClick={() => selectStudent(student)} className="rounded-xl border border-blue-200 px-4 py-2 text-xs font-black text-[#1E40AF]"><span>View Details</span></button></td></tr>)}</tbody></table></div></div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filteredStudents.map(student => <article key={student.id} className="rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-200"><div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black ${student.tone}`}>{student.initials}</div><h3 className="mt-4 text-lg font-black"><span>{student.name}</span></h3><p className="mt-1 text-sm text-slate-500"><span>{student.className} · {student.institute}</span></p><span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(student.status)}`}>{student.status}</span><button type="button" onClick={() => selectStudent(student)} className="mt-4 w-full rounded-2xl border border-blue-200 px-4 py-3 text-sm font-black text-[#1E40AF]"><span>View Details</span></button></article>)}</div>}
+            </section>}
+
+          {activeSection === 'attendance' && <section aria-labelledby="attendance-title" className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-4"><article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><Users className="text-[#1E40AF]" /><p className="mt-4 text-3xl font-black"><span>{students.length}</span></p><p className="text-sm font-bold text-slate-500"><span>Total Students</span></p></article><article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><Check className="text-emerald-600" /><p className="mt-4 text-3xl font-black"><span>{presentCount}</span></p><p className="text-sm font-bold text-slate-500"><span>Present Today</span></p></article><article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><Globe2 className="text-sky-500" /><p className="mt-4 text-3xl font-black"><span>{onlineCount}</span></p><p className="text-sm font-bold text-slate-500"><span>Online</span></p></article><article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><Building2 className="text-[#0D9488]" /><p className="mt-4 text-3xl font-black"><span>{onsiteCount}</span></p><p className="text-sm font-bold text-slate-500"><span>Onsite</span></p></article></div>
+              <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 id="attendance-title" className="text-2xl font-black"><span>Interactive Monthly Calendar</span></h2><p className="mt-1 text-sm text-slate-500"><span>Select a date to mark all student attendance.</span></p></div><select value={trackerDate} onChange={event => setTrackerDate(event.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black">{trackerDays.map(day => <option key={day.id}>{day.date}</option>)}</select></div><div className="mt-5 grid grid-cols-7 overflow-hidden rounded-3xl border border-slate-200 text-center text-sm">{weekdays.map(day => <div key={`tracker-${day.id}`} className="bg-slate-50 px-2 py-3 font-black text-slate-500">{day.label}</div>)}{Array.from({
+                length: 30
+              }, (_, day) => day + 1).map(day => <button key={`tracker-day-${day}`} type="button" onClick={() => setTrackerDate(`${String(day).padStart(2, '0')} Jun 2024`)} className={`min-h-16 border-t border-slate-100 font-black ${trackerDate.startsWith(String(day).padStart(2, '0')) ? 'bg-blue-50 text-[#1E40AF]' : 'text-slate-700'}`}><span>{day}</span></button>)}</div></div>
+              <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200"><div className="border-b border-slate-200 px-5 py-4"><h3 className="font-black"><span>Mark students for {trackerDate}</span></h3></div><div className="divide-y divide-slate-100">{students.map(student => <div key={`mark-${student.id}`} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-center gap-3"><span className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-black ${student.tone}`}>{student.initials}</span><div><p className="font-black"><span>{student.name}</span></p><p className="text-sm text-slate-500"><span>{student.className}</span></p></div></div><div className="flex rounded-2xl bg-slate-100 p-1"><button type="button" onClick={() => setClassMarks(current => ({
+                    ...current,
+                    [student.id]: 'Onsite'
+                  }))} className={`rounded-xl px-3 py-2 text-xs font-black ${classMarks[student.id] === 'Onsite' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}><span>Onsite</span></button><button type="button" onClick={() => setClassMarks(current => ({
+                    ...current,
+                    [student.id]: 'Online'
+                  }))} className={`rounded-xl px-3 py-2 text-xs font-black ${classMarks[student.id] === 'Online' ? 'bg-sky-500 text-white' : 'text-slate-600'}`}><span>Online</span></button><button type="button" onClick={() => setClassMarks(current => ({
+                    ...current,
+                    [student.id]: 'Not Taken'
+                  }))} className={`rounded-xl px-3 py-2 text-xs font-black ${classMarks[student.id] === 'Not Taken' ? 'bg-slate-700 text-white' : 'text-slate-600'}`}><span>Not Taken</span></button></div></div>)}</div></div>
+            </section>}
+
+          {activeSection === 'payments' && <section aria-labelledby="payment-methods-title" className="space-y-5"><div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><div className="flex items-center gap-3"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-[#1E40AF]"><Landmark /></div><div><h2 id="payment-methods-title" className="text-2xl font-black"><span>Bank Details</span></h2><p className="text-sm text-slate-500"><span>Maintain the bank account shown to students.</span></p></div></div><form className="mt-5 grid gap-3 md:grid-cols-3"><input placeholder="Bank Name" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Account Name" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Account Number" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Branch Name" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Swift Code" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Routing Number" className="rounded-2xl border border-slate-200 px-4 py-3" /><button type="button" className="rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Add Bank</span></button></form><article className="mt-4 flex flex-col justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center"><div><p className="font-black"><span>Eastern Trust Bank</span></p><p className="text-sm text-slate-500"><span>RHTacademy Education · 000-129-445891 · Gulshan Branch</span></p></div><div className="flex gap-2"><button type="button" className="rounded-xl bg-white p-2 text-[#1E40AF]"><Edit3 size={16} /></button><button type="button" className="rounded-xl bg-white p-2 text-red-600"><Trash2 size={16} /></button></div></article></div><div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><div className="flex items-center justify-between"><h2 className="text-2xl font-black"><span>MFS Details</span></h2><button type="button" className="rounded-2xl bg-[#0D9488] px-4 py-2.5 text-sm font-black text-white"><span>Add MFS Account</span></button></div><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">{[{
+                id: 'bkash',
+                name: 'bKash',
+                tone: 'bg-pink-50 text-pink-700'
+              }, {
+                id: 'nagad',
+                name: 'Nagad',
+                tone: 'bg-orange-50 text-orange-700'
+              }, {
+                id: 'rocket',
+                name: 'Rocket',
+                tone: 'bg-purple-50 text-purple-700'
+              }, {
+                id: 'taptap',
+                name: 'Taptap',
+                tone: 'bg-blue-50 text-blue-700'
+              }].map(item => <article key={item.id} className="rounded-3xl border border-slate-200 p-4"><div className={`flex h-12 w-12 items-center justify-center rounded-2xl font-black ${item.tone}`}>{item.name.charAt(0)}</div><h3 className="mt-4 font-black"><span>{item.name}</span></h3><input defaultValue="+880 1712 000 999" className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" /><button type="button" className="mt-3 rounded-xl border border-blue-200 px-4 py-2 text-sm font-black text-[#1E40AF]"><span>Edit</span></button></article>)}</div></div></section>}
+
+          {activeSection === 'landing' && <section aria-labelledby="landing-title" className="space-y-5"><div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><h2 id="landing-title" className="text-2xl font-black"><span>Landing Page Controls</span></h2><div className="mt-4 flex gap-2 overflow-x-auto">{landingTabs.map(tab => <button key={tab} type="button" onClick={() => setLandingTab(tab)} className={`rounded-full px-4 py-2 text-sm font-black ${landingTab === tab ? 'bg-[#1E40AF] text-white' : 'bg-slate-100 text-slate-600'}`}><span>{tab}</span></button>)}</div></div>{landingTab === 'About Me' && <form className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><div className="flex flex-col gap-5 lg:flex-row"><div className="text-center"><div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-blue-50 text-[#1E40AF]"><UserRound size={42} /></div><button type="button" className="mt-3 inline-flex items-center gap-2 rounded-xl border border-blue-200 px-3 py-2 text-sm font-black text-[#1E40AF]"><Upload size={15} /><span>Upload</span></button></div><div className="grid flex-1 gap-3 md:grid-cols-3"><input placeholder="Name" defaultValue="Rahat Hossain" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Degree" defaultValue="MSc in Physics" className="rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Institute" defaultValue="University of Dhaka" className="rounded-2xl border border-slate-200 px-4 py-3" /><textarea placeholder="Description" defaultValue="I help SSC and HSC students build confidence through focused lessons, structured resources, and steady feedback." className="min-h-32 rounded-2xl border border-slate-200 px-4 py-3 md:col-span-3" /><button type="button" className="rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Save Changes</span></button></div></div></form>}{landingTab === 'Booking Card' && <div className="grid gap-5 lg:grid-cols-2">{[{
+              id: 'ssc',
+              category: 'SSC'
+            }, {
+              id: 'hsc',
+              category: 'HSC'
+            }].map(card => <form key={card.id} className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><p className="text-xs font-black uppercase tracking-wider text-[#0D9488]"><span>{card.category}</span></p><input placeholder="Label Name" defaultValue={`${card.category} Premium Batch`} className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3" /><input placeholder="Badge" defaultValue="Limited seats" className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3" /><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">Physics</span><span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-bold text-teal-700">Chemistry</span><button type="button" className="rounded-full border border-slate-200 px-3 py-1 text-sm font-black"><Plus size={13} className="inline" /> Add</button></div><textarea placeholder="Special Note" defaultValue="Small-group coaching with regular model tests and parent updates." className="mt-3 min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3" /><button type="button" className="mt-3 rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Update Card</span></button></form>)}</div>}{landingTab === 'Schedule' && <form className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><label className="block max-w-xs text-sm font-black text-slate-700"><span>Available Seat</span><input type="number" defaultValue={12} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3" /></label><div className="mt-5"><h3 className="font-black"><span>Available Time Slots</span></h3><div className="mt-3 space-y-2">{landingSlots.map(slot => <div key={slot.id} className="flex items-center gap-2"><input defaultValue={slot.value} className="w-full rounded-2xl border border-slate-200 px-4 py-3" /><button type="button" className="rounded-xl p-3 text-red-600"><Trash2 size={16} /></button></div>)}</div><button type="button" className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-black"><Plus size={15} /><span>Add Slot</span></button></div><button type="button" className="mt-5 rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-black text-white"><span>Save Schedule</span></button></form>}</section>}
+        </div>
+      </main>
+    </div>;
+};

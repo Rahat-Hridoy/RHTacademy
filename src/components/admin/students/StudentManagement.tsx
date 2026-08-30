@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Search, List, LayoutGrid } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, List, Grid3X3, Mail, Phone, ArrowLeft } from 'lucide-react';
 import {
   ProfileTab,
   AttendanceTab,
@@ -11,6 +11,47 @@ import {
   ActionTab,
   TabName
 } from './StudentTabs';
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+const TONES = [
+  'bg-blue-100 text-blue-800',
+  'bg-teal-100 text-teal-800',
+  'bg-violet-100 text-violet-800',
+  'bg-amber-100 text-amber-800',
+  'bg-rose-100 text-rose-800',
+  'bg-emerald-100 text-emerald-800',
+  'bg-orange-100 text-orange-800',
+  'bg-pink-100 text-pink-800',
+];
+
+function getStudentTone(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return TONES[Math.abs(hash) % TONES.length];
+}
+
+function getInitials(name: string): string {
+  return (name || '??')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('');
+}
+
+function statusBadge(status: string) {
+  if (status === 'active') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  if (status === 'paused') return 'bg-amber-50 text-amber-700 ring-amber-200';
+  return 'bg-slate-50 text-slate-600 ring-slate-200';
+}
+
+const TABS: TabName[] = ['Profile', 'Attendance', 'Resource Share', 'Sent Notice', 'Payment', 'Action'];
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
 
 interface StudentManagementProps {
   students: any[];
@@ -27,25 +68,41 @@ export const StudentManagement = ({
   folders,
   resources,
   notices,
-  paymentCycles
+  paymentCycles,
 }: StudentManagementProps) => {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [tab, setTab] = useState<TabName>('Profile');
 
-  const visibleStudents = students
-    .filter(s => s.role !== 'admin')
-    .filter(s =>
-      (s.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (s.admin_custom_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (s.institute || '').toLowerCase().includes(search.toLowerCase())
-    );
+  const visibleStudents = useMemo(
+    () =>
+      students
+        .filter(s => s.role !== 'admin')
+        .filter(s => {
+          const q = search.toLowerCase();
+          return (
+            (s.admin_custom_name || s.full_name || '').toLowerCase().includes(q) ||
+            (s.admin_custom_class || s.class || '').toLowerCase().includes(q) ||
+            (s.admin_custom_institute || s.institute || '').toLowerCase().includes(q)
+          );
+        }),
+    [students, search]
+  );
 
-  const selectedStudent = students.find(s => s.id === selectedStudentId);
+  const selectedStudent = students.find(s => s.id === selectedStudentId) ?? null;
 
-  const renderTabContent = () => {
-    if (!selectedStudent) return null;
+  const selectStudent = (student: any) => {
+    setSelectedStudentId(student.id);
+    setTab('Profile');
+  };
+
+  // ── DETAIL VIEW ─────────────────────────────────────────────────────────────
+  if (selectedStudent) {
+    const tone = getStudentTone(selectedStudent.id);
+    const displayName = selectedStudent.admin_custom_name || selectedStudent.full_name || 'Student';
+    const initials = getInitials(displayName);
+    const acctStatus = selectedStudent.account_status || 'active';
 
     const studentAttendance = attendance.filter(a => a.student_id === selectedStudent.id);
     const studentFolders = folders.filter(f => f.student_id === selectedStudent.id);
@@ -53,174 +110,260 @@ export const StudentManagement = ({
     const studentNotices = notices.filter(n => n.student_id === selectedStudent.id);
     const studentCycles = paymentCycles.filter(p => p.student_id === selectedStudent.id);
 
-    switch (tab) {
-      case 'Profile': return <ProfileTab student={selectedStudent} />;
-      case 'Attendance': return <AttendanceTab student={selectedStudent} attendance={studentAttendance} />;
-      case 'Resource Share': return <ResourceTab student={selectedStudent} folders={studentFolders} resources={studentResources} />;
-      case 'Sent Notice': return <NoticeTab student={selectedStudent} notices={studentNotices} />;
-      case 'Payment': return <PaymentTab student={selectedStudent} paymentCycles={studentCycles} />;
-      case 'Action': return <ActionTab student={selectedStudent} onDeleted={() => setSelectedStudentId(null)} />;
-      default: return null;
-    }
-  };
-
-  return (
-    <>
-      {!selectedStudent ? (
-        <section aria-labelledby="students-heading" className="mb-8">
-          <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-teal-700">People & progress</p>
-              <h2 id="students-heading" className="text-2xl font-bold">Student Management</h2>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <label className="flex min-w-[240px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-400 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-                <Search size={17} />
-                <span className="sr-only">Search students</span>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search students"
-                  className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400"
-                />
-              </label>
-              <select className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 outline-none hover:border-slate-300 transition-colors">
-                <option>Sort: Recently active</option>
-                <option>Sort: A–Z</option>
-              </select>
-              <div className="flex rounded-lg border border-slate-200 bg-white p-1">
-                <button aria-label="List view" onClick={() => setView('list')} className={`rounded-md p-2 transition-colors ${view === 'list' ? 'bg-blue-50 text-blue-800' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
-                  <List size={17} />
-                </button>
-                <button aria-label="Grid view" onClick={() => setView('grid')} className={`rounded-md p-2 transition-colors ${view === 'grid' ? 'bg-blue-50 text-blue-800' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
-                  <LayoutGrid size={17} />
-                </button>
+    return (
+      <section aria-labelledby="student-detail-title" className="space-y-5">
+        {/* ── Header Card ───────────────────────────────────────────── */}
+        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              {/* Large Avatar */}
+              <div className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-full text-3xl font-black ${tone}`}>
+                <span>{initials}</span>
               </div>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {view === 'list' ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[650px] text-left text-sm">
-                  <thead className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 bg-slate-50/50">
-                    <tr>
-                      <th className="px-5 py-4 font-semibold">Student</th>
-                      <th className="px-5 py-4 font-semibold">Class</th>
-                      <th className="px-5 py-4 font-semibold">Institute</th>
-                      <th className="px-5 py-4 text-right font-semibold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {visibleStudents.map(student => (
-                      <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold bg-blue-100 text-blue-800 shrink-0">
-                              {student.full_name?.substring(0, 2).toUpperCase()}
-                            </span>
-                            <span className="font-semibold text-slate-800">{student.admin_custom_name || student.full_name}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">{student.admin_custom_class || student.class}</td>
-                        <td className="px-5 py-4 text-slate-500">{student.admin_custom_institute || student.institute}</td>
-                        <td className="px-5 py-4 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedStudentId(student.id);
-                              setTab('Profile');
-                            }}
-                            className="rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 transition-colors"
-                          >
-                            View Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {visibleStudents.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                          No students found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {visibleStudents.map(student => (
-                  <article key={student.id} className="rounded-xl border border-slate-200 p-4 transition-colors hover:border-slate-300">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-full text-xs font-bold bg-blue-100 text-blue-800 shrink-0">
-                        {student.full_name?.substring(0, 2).toUpperCase()}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-bold truncate text-slate-900">{student.admin_custom_name || student.full_name}</h3>
-                        <p className="text-xs text-slate-500 truncate mt-0.5">{student.admin_custom_class || student.class}</p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm text-slate-500 truncate">{student.admin_custom_institute || student.institute}</p>
-                    <button
-                      onClick={() => {
-                        setSelectedStudentId(student.id);
-                        setTab('Profile');
-                      }}
-                      className="mt-4 w-full rounded-lg bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-blue-800 transition-colors shadow-sm"
-                    >
-                      View Details
-                    </button>
-                  </article>
-                ))}
-                {visibleStudents.length === 0 && (
-                  <div className="col-span-full py-8 text-center text-slate-500">
-                    No students found.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      ) : (
-        <section aria-labelledby="detail-heading" className="rounded-2xl border border-slate-200 bg-white shadow-sm animate-in slide-in-from-right-4 fade-in duration-300">
-          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Student detail preview</p>
-                <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5">
-                  <span className={`h-1.5 w-1.5 rounded-full ${selectedStudent.account_status === 'paused' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${selectedStudent.account_status === 'paused' ? 'text-amber-700' : 'text-emerald-700'}`}>
-                    {selectedStudent.account_status === 'paused' ? 'Paused account' : 'Active account'}
+              {/* Info */}
+              <div>
+                <h2 id="student-detail-title" className="text-3xl font-black tracking-tight text-slate-950">
+                  <span>{displayName}</span>
+                </h2>
+                <p className="mt-1 text-sm font-bold text-slate-600">
+                  <span>
+                    {selectedStudent.admin_custom_class || selectedStudent.class || 'N/A'}
+                    {' · '}
+                    {selectedStudent.admin_custom_institute || selectedStudent.institute || 'N/A'}
                   </span>
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(acctStatus)}`}>
+                    {acctStatus === 'paused' ? 'Paused' : 'Active'}
+                  </span>
+                  {selectedStudent.email && (
+                    <span className="inline-flex items-center gap-1">
+                      <Mail size={14} />
+                      {selectedStudent.email}
+                    </span>
+                  )}
+                  {selectedStudent.phone_number && (
+                    <span className="inline-flex items-center gap-1">
+                      <Phone size={14} />
+                      {selectedStudent.phone_number}
+                    </span>
+                  )}
                 </div>
               </div>
-              <h2 id="detail-heading" className="mt-2 text-xl font-bold">{selectedStudent.admin_custom_name || selectedStudent.full_name}</h2>
             </div>
+            {/* ── Back Button (top-right of header) ─────────────────── */}
             <button
+              type="button"
               onClick={() => setSelectedStudentId(null)}
-              className="flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900"
+              className="self-start inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[#1E40AF] shadow-sm hover:bg-blue-50 transition-colors"
             >
-              &larr; Back
+              <ArrowLeft size={16} aria-hidden="true" />
+              <span>Back to List</span>
             </button>
           </div>
-          <div className="overflow-x-auto border-b border-slate-200 scrollbar-hide">
-            <div className="flex min-w-max px-5">
-              {(['Profile', 'Attendance', 'Resource Share', 'Sent Notice', 'Payment', 'Action'] as TabName[]).map(item => (
+
+          {/* ── Tab Bar ───────────────────────────────────────────────── */}
+          <div className="mt-6 overflow-x-auto border-b border-slate-200">
+            <div className="flex min-w-max gap-1">
+              {TABS.map(t => (
                 <button
-                  key={item}
-                  onClick={() => setTab(item)}
-                  className={`border-b-2 px-4 py-4 text-sm font-semibold transition-colors first:pl-0 ${tab === item ? 'border-blue-800 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={`border-b-2 px-4 py-3 text-sm font-black transition ${tab === t
+                    ? 'border-[#1E40AF] text-[#1E40AF]'
+                    : 'border-transparent text-slate-500 hover:text-slate-950'
+                    }`}
                 >
-                  {item}
+                  <span>{t}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="p-5 sm:p-7">
-            {renderTabContent()}
+
+          {/* ── Tab Content ───────────────────────────────────────────── */}
+          <div className="pt-6">
+            {tab === 'Profile' && (
+              <ProfileTab student={selectedStudent} />
+            )}
+            {tab === 'Attendance' && (
+              <AttendanceTab student={selectedStudent} attendance={studentAttendance} />
+            )}
+            {tab === 'Resource Share' && (
+              <ResourceTab student={selectedStudent} folders={studentFolders} resources={studentResources} />
+            )}
+            {tab === 'Sent Notice' && (
+              <NoticeTab student={selectedStudent} notices={studentNotices} />
+            )}
+            {tab === 'Payment' && (
+              <PaymentTab
+                student={selectedStudent}
+                paymentCycles={studentCycles}
+                attendance={studentAttendance}
+              />
+            )}
+            {tab === 'Action' && (
+              <ActionTab student={selectedStudent} onDeleted={() => setSelectedStudentId(null)} />
+            )}
           </div>
-        </section>
+        </div>
+      </section>
+    );
+  }
+
+  // ── STUDENT LIST ────────────────────────────────────────────────────────────
+  return (
+    <section aria-labelledby="students-title" className="space-y-5">
+      {/* ── List Header Controls ────────────────────────────────────── */}
+      <div className="flex flex-col justify-between gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:flex-row lg:items-end">
+        <div>
+          <h2 id="students-title" className="text-2xl font-black">
+            <span>Students</span>
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            <span>Search, sort, and open the full student profile panel.</span>
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {/* Search */}
+          <label className="flex min-w-[280px] items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">Search students</span>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search students..."
+              className="w-full bg-transparent font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+            />
+          </label>
+          {/* View Toggle */}
+          <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              aria-label="List View"
+              onClick={() => setView('list')}
+              className={`rounded-xl p-3 transition ${view === 'list' ? 'bg-blue-50 text-[#1E40AF]' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <List size={17} />
+            </button>
+            <button
+              type="button"
+              aria-label="Grid View"
+              onClick={() => setView('grid')}
+              className={`rounded-xl p-3 transition ${view === 'grid' ? 'bg-blue-50 text-[#1E40AF]' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <Grid3X3 size={17} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── List View ───────────────────────────────────────────────── */}
+      {view === 'list' ? (
+        <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Avatar</th>
+                  <th className="px-5 py-3">Full Name</th>
+                  <th className="px-5 py-3">Class</th>
+                  <th className="px-5 py-3">Institute</th>
+                  <th className="px-5 py-3">Account Status</th>
+                  <th className="px-5 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {visibleStudents.map(student => {
+                  const tone = getStudentTone(student.id);
+                  const initials = getInitials(student.admin_custom_name || student.full_name || '??');
+                  const acctStatus = student.account_status || 'active';
+                  return (
+                    <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-5 py-4">
+                        <span className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-black ${tone}`}>
+                          {initials}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 font-black text-slate-950">
+                        {student.admin_custom_name || student.full_name}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {student.admin_custom_class || student.class || '—'}
+                      </td>
+                      <td className="px-5 py-4 text-slate-500">
+                        {student.admin_custom_institute || student.institute || '—'}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(acctStatus)}`}>
+                          {acctStatus === 'paused' ? 'Paused' : 'Active'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          type="button"
+                          onClick={() => selectStudent(student)}
+                          className="rounded-xl border border-blue-200 px-4 py-2 text-xs font-black text-[#1E40AF] hover:bg-blue-50 transition-colors"
+                        >
+                          <span>View Details</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {visibleStudents.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-10 text-center font-semibold text-slate-500">
+                      No students found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* ── Grid View ─────────────────────────────────────────────── */
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleStudents.map(student => {
+            const tone = getStudentTone(student.id);
+            const initials = getInitials(student.admin_custom_name || student.full_name || '??');
+            const acctStatus = student.account_status || 'active';
+            return (
+              <article key={student.id} className="rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-200">
+                <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black ${tone}`}>
+                  {initials}
+                </div>
+                <h3 className="mt-4 text-lg font-black text-slate-950">
+                  <span>{student.admin_custom_name || student.full_name}</span>
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  <span>
+                    {student.admin_custom_class || student.class || '—'}
+                    {' · '}
+                    {student.admin_custom_institute || student.institute || '—'}
+                  </span>
+                </p>
+                <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ${statusBadge(acctStatus)}`}>
+                  {acctStatus === 'paused' ? 'Paused' : 'Active'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => selectStudent(student)}
+                  className="mt-4 w-full rounded-2xl border border-blue-200 px-4 py-3 text-sm font-black text-[#1E40AF] hover:bg-blue-50 transition-colors"
+                >
+                  <span>View Details</span>
+                </button>
+              </article>
+            );
+          })}
+          {visibleStudents.length === 0 && (
+            <div className="col-span-full py-10 text-center font-semibold text-slate-500">
+              No students found.
+            </div>
+          )}
+        </div>
       )}
-    </>
+    </section>
   );
 };

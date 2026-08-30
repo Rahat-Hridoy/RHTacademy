@@ -291,7 +291,7 @@ export async function deleteStudentAccount(id: string) {
     console.warn("Auth user deletion warning:", authErr);
   }
 
-  // 2. Delete profile record
+  // 2. Delete profile record (cascade deletes attendance, resources, notices, cycles via FK)
   const { error } = await supabase
     .from('profiles')
     .delete()
@@ -299,6 +299,58 @@ export async function deleteStudentAccount(id: string) {
 
   if (error) return { error: 'Failed to delete profile: ' + error.message };
 
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+// ─── ADMIN VIEW OVERRIDES ONLY ───────────────────────────────────────────────
+// Separate from updateStudentProfile so submitting overrides never nulls
+// the student's original full_name / class / institute fields.
+export async function updateStudentAdminOverrides(id: string, formData: FormData) {
+  const supabase = await createAdminClient();
+  const customName = (formData.get('customName') as string)?.trim() || null;
+  const customClass = (formData.get('customClass') as string)?.trim() || null;
+  const customInstitute = (formData.get('customInstitute') as string)?.trim() || null;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      admin_custom_name: customName,
+      admin_custom_class: customClass,
+      admin_custom_institute: customInstitute,
+    })
+    .eq('id', id);
+
+  if (error) return { error: 'Failed to save admin overrides: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+// ─── SCHEDULE TIME ────────────────────────────────────────────────────────────
+// Saves the student's recurring class time (e.g. "16:30") to profiles.schedule_time.
+export async function saveStudentScheduleTime(studentId: string, scheduleTime: string) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ schedule_time: scheduleTime })
+    .eq('id', studentId);
+
+  if (error) return { error: 'Failed to save schedule time: ' + error.message };
+  revalidatePath('/admin/dashboard/students');
+  return { success: true };
+}
+
+// ─── PAYMENT CYCLE CONFIG ─────────────────────────────────────────────────────
+// Updates the per-student default class limit per payment cycle (8 or 12).
+// Column in profiles table: cycle_class_limit
+export async function updateStudentCycleConfig(studentId: string, cycleLimit: number) {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ cycle_class_limit: cycleLimit })
+    .eq('id', studentId);
+
+  if (error) return { error: 'Failed to update cycle config: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }
