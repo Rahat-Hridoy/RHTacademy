@@ -1,124 +1,221 @@
 "use client";
 
-import React, { useState } from 'react';
-import { CalendarDays, Users } from 'lucide-react';
-import { markStudentAttendance } from '@/app/actions/studentActions';
+import React, { useState, useMemo } from 'react';
+import { Users, Check, Globe2, Building2 } from 'lucide-react';
+import { markStudentAttendance, deleteStudentAttendance } from '@/app/actions/studentActions';
+
+const weekdays = [
+  { id: 'mon', label: 'Mon' },
+  { id: 'tue', label: 'Tue' },
+  { id: 'wed', label: 'Wed' },
+  { id: 'thu', label: 'Thu' },
+  { id: 'fri', label: 'Fri' },
+  { id: 'sat', label: 'Sat' },
+  { id: 'sun', label: 'Sun' }
+];
+
+const tones = [
+  'bg-blue-100 text-blue-800',
+  'bg-teal-100 text-teal-800',
+  'bg-violet-100 text-violet-800',
+  'bg-amber-100 text-amber-800',
+  'bg-rose-100 text-rose-800',
+  'bg-emerald-100 text-emerald-800',
+  'bg-pink-100 text-pink-800',
+];
+
+const getTone = (id: string) => {
+  const sum = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return tones[sum % tones.length];
+};
+
+const getInitials = (name: string) => {
+  if (!name) return '??';
+  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+};
 
 export const AttendanceTracker = ({ students, attendance }: { students: any[], attendance: any[] }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [notice, setNotice] = useState('');
+  // Use today's date in local YYYY-MM-DD format as the initial tracker date
+  const [trackerDate, setTrackerDate] = useState(() => {
+    const today = new Date();
+    const tzOffset = today.getTimezoneOffset() * 60000;
+    return new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
+  });
   const [processing, setProcessing] = useState<string | null>(null);
 
   // Get attendance for selected date
-  const dateAttendance = attendance.filter(a => a.date === selectedDate);
+  const dateAttendance = useMemo(() => {
+    return attendance.filter(a => a.date === trackerDate);
+  }, [attendance, trackerDate]);
 
   const getStudentStatus = (studentId: string) => {
     const record = dateAttendance.find(a => a.student_id === studentId);
-    if (!record) return 'none';
-    if (!record.completed) return 'absent';
-    return record.class_type; // 'onsite' | 'online'
+    if (!record) return 'Not Taken';
+    if (!record.completed) return 'Not Taken'; 
+    return record.class_type === 'onsite' ? 'Onsite' : 'Online';
   };
 
   const handleMark = async (studentId: string, type: 'onsite' | 'online' | 'absent') => {
     setProcessing(studentId);
-    setNotice('');
-    const res = await markStudentAttendance(studentId, selectedDate, type);
-    if (res.error) setNotice(res.error);
+    if (type === 'absent') {
+      const record = dateAttendance.find(a => a.student_id === studentId);
+      if (record) {
+        await deleteStudentAttendance(record.id);
+      }
+    } else {
+      await markStudentAttendance(studentId, trackerDate, type);
+    }
     setProcessing(null);
   };
 
+  // Stats
+  const presentCount = dateAttendance.filter(a => a.completed).length;
+  const onlineCount = dateAttendance.filter(a => a.completed && a.class_type === 'online').length;
+  const onsiteCount = dateAttendance.filter(a => a.completed && a.class_type === 'onsite').length;
+
+  // Calendar logic
+  const [year, month, day] = trackerDate.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
+  // Adjust so Monday is 0 and Sunday is 6
+  const startDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  const displayDateStr = new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+
   return (
-    <div>
-      <header className="mb-8 flex flex-col justify-between gap-5 border-b border-slate-200 pb-7 md:flex-row md:items-end">
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-700">Daily Records</p>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Attendance Tracker</h1>
-          <p className="mt-2 text-sm text-slate-500">Manage global attendance across all students for any given date.</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl bg-white p-2 shadow-sm border border-slate-200">
-          <CalendarDays className="text-slate-400 ml-2" size={20} />
+    <section aria-labelledby="attendance-title" className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-4">
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <Users className="text-[#1E40AF]" />
+          <p className="mt-4 text-3xl font-bold"><span>{students.length}</span></p>
+          <p className="text-sm font-medium text-slate-500"><span>Total Students</span></p>
+        </article>
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <Check className="text-emerald-600" />
+          <p className="mt-4 text-3xl font-bold"><span>{presentCount}</span></p>
+          <p className="text-sm font-medium text-slate-500"><span>Present Today</span></p>
+        </article>
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <Globe2 className="text-sky-500" />
+          <p className="mt-4 text-3xl font-bold"><span>{onlineCount}</span></p>
+          <p className="text-sm font-medium text-slate-500"><span>Online</span></p>
+        </article>
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <Building2 className="text-[#0D9488]" />
+          <p className="mt-4 text-3xl font-bold"><span>{onsiteCount}</span></p>
+          <p className="text-sm font-medium text-slate-500"><span>Onsite</span></p>
+        </article>
+      </div>
+
+      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <h2 id="attendance-title" className="text-2xl font-bold"><span>Interactive Monthly Calendar</span></h2>
+            <p className="mt-1 text-sm text-slate-500"><span>Select a date to mark all student attendance.</span></p>
+          </div>
           <input 
             type="date" 
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="border-none outline-none bg-transparent px-2 font-semibold text-slate-700"
+            value={trackerDate} 
+            onChange={(e) => {
+              if(e.target.value) setTrackerDate(e.target.value);
+            }} 
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-200" 
           />
         </div>
-      </header>
-
-      {notice && <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-semibold">{notice}</div>}
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-slate-200 p-5 bg-slate-50">
-          <Users className="text-slate-400" />
-          <h2 className="font-bold">Students</h2>
-          <span className="ml-auto text-sm text-slate-500">{students.length} Total</span>
-        </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm min-w-[600px]">
-            <thead className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-5 py-4 font-semibold">Student Name</th>
-                <th className="px-5 py-4 font-semibold">Class</th>
-                <th className="px-5 py-4 font-semibold">Status ({new Date(selectedDate).toLocaleDateString()})</th>
-                <th className="px-5 py-4 text-right font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {students.map(student => {
-                const status = getStudentStatus(student.id);
-                return (
-                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-4 font-semibold text-slate-800">
-                      {student.admin_custom_name || student.full_name}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {student.admin_custom_class || student.class}
-                    </td>
-                    <td className="px-5 py-4">
-                      {status === 'none' && <span className="text-slate-400 font-medium">Not marked</span>}
-                      {status === 'onsite' && <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">Onsite</span>}
-                      {status === 'online' && <span className="text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded">Online</span>}
-                      {status === 'absent' && <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded">Absent</span>}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleMark(student.id, 'onsite')}
-                          disabled={processing === student.id || status === 'onsite'}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 transition-colors"
-                        >
-                          Onsite
-                        </button>
-                        <button 
-                          onClick={() => handleMark(student.id, 'online')}
-                          disabled={processing === student.id || status === 'online'}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 transition-colors"
-                        >
-                          Online
-                        </button>
-                        <button 
-                          onClick={() => handleMark(student.id, 'absent')}
-                          disabled={processing === student.id || status === 'absent'}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 transition-colors"
-                        >
-                          Absent
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {students.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-5 py-8 text-center text-slate-500">No students found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="mt-5 grid grid-cols-7 overflow-hidden rounded-3xl border border-slate-200 text-center text-sm">
+          {weekdays.map(d => (
+            <div key={`tracker-${d.id}`} className="bg-slate-50 px-2 py-3 font-semibold text-slate-500">
+              {d.label}
+            </div>
+          ))}
+          
+          {Array.from({ length: startDay }).map((_, i) => (
+             <div key={`empty-${i}`} className="min-h-16 border-t border-slate-100 bg-slate-50/30"></div>
+          ))}
+          
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isSelected = trackerDate === dateStr;
+            // Optionally, we could show marks on the calendar if we had global attendance counts
+            return (
+              <button 
+                key={`tracker-day-${d}`} 
+                type="button" 
+                onClick={() => setTrackerDate(dateStr)} 
+                className={`min-h-16 border-t border-slate-100 font-medium transition ${isSelected ? 'bg-blue-50 text-[#1E40AF] font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+              >
+                <span>{d}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
-    </div>
+
+      <div className="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <h3 className="font-semibold text-slate-800"><span>Mark students for {displayDateStr}</span></h3>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {students.map(student => {
+            const status = getStudentStatus(student.id);
+            const displayName = student.admin_custom_name || student.full_name;
+            const displayClass = student.admin_custom_class || student.class || 'No Class';
+            const initials = getInitials(displayName);
+            const tone = getTone(student.id);
+
+            return (
+              <div key={`mark-${student.id}`} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${tone}`}>
+                    {initials}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-slate-900"><span>{displayName}</span></p>
+                    <p className="text-sm text-slate-500"><span>{displayClass}</span></p>
+                  </div>
+                </div>
+                
+                <div className="flex rounded-2xl bg-slate-100 p-1">
+                  <button 
+                    type="button" 
+                    onClick={() => handleMark(student.id, 'onsite')}
+                    disabled={processing === student.id}
+                    className={`rounded-xl px-3 py-2 text-xs font-medium transition ${status === 'Onsite' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'} ${processing === student.id ? 'opacity-50' : ''}`}
+                  >
+                    <span>Onsite</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleMark(student.id, 'online')}
+                    disabled={processing === student.id}
+                    className={`rounded-xl px-3 py-2 text-xs font-medium transition ${status === 'Online' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'} ${processing === student.id ? 'opacity-50' : ''}`}
+                  >
+                    <span>Online</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleMark(student.id, 'absent')}
+                    disabled={processing === student.id}
+                    className={`rounded-xl px-3 py-2 text-xs font-medium transition ${status === 'Not Taken' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'} ${processing === student.id ? 'opacity-50' : ''}`}
+                  >
+                    <span>Not Taken</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {students.length === 0 && (
+            <div className="px-5 py-8 text-center text-sm font-medium text-slate-500">
+              No students found.
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
