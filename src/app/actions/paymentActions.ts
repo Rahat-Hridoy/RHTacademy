@@ -47,7 +47,7 @@ export async function upsertPaymentMethod(formData: FormData) {
 
   if (error) {
     console.error("Payment method error", error);
-    return { error: 'Failed to save payment method' };
+    return { error: error.message || error.details || 'Failed to save payment method' };
   }
 
   revalidatePath('/admin/dashboard/payments');
