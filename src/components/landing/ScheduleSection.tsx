@@ -11,12 +11,13 @@ interface ScheduleSectionProps {
     available_seat: number;
     available_time: string[];
   };
+  serviceCards?: any[];
 }
 
-const sscSubjects = ['Physics', 'Chemistry', 'Biology', 'Math'];
-const hscSubjects = ['Physics', 'Chemistry', 'ICT'];
+const fallbackSscSubjects = ['Physics', 'Chemistry', 'Biology', 'Math'];
+const fallbackHscSubjects = ['Physics', 'Chemistry', 'ICT'];
 
-export const ScheduleSection = ({ scheduleData }: ScheduleSectionProps) => {
+export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionProps) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [kind, setKind] = useState<ScheduleKind>('SSC');
@@ -24,7 +25,24 @@ export const ScheduleSection = ({ scheduleData }: ScheduleSectionProps) => {
   const [errorMsg, setErrorMsg] = useState('');
   const [isPending, setIsPending] = useState(false);
 
-  const subjects = kind === 'SSC' ? sscSubjects : hscSubjects;
+  const defaultCards = [
+    {
+      title: 'SSC',
+      badge: 'Secondary',
+      description: 'Build unshakeable fundamentals.',
+      subjects: fallbackSscSubjects,
+    },
+    {
+      title: 'HSC',
+      badge: 'Higher Secondary',
+      description: 'Turn complex chapters into momentum.',
+      subjects: fallbackHscSubjects,
+    }
+  ];
+
+  const cardsToRender = serviceCards && serviceCards.length > 0 ? serviceCards : defaultCards;
+  const selectedCard = cardsToRender.find(c => c.title === kind) || cardsToRender[0];
+  const subjects = selectedCard?.subjects || [];
 
   const toggleSubject = (subject: string) => {
     setSelectedSubjects(current => 
@@ -67,31 +85,37 @@ export const ScheduleSection = ({ scheduleData }: ScheduleSectionProps) => {
         </div>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2">
-          <button onClick={() => setKind('SSC')} className={`text-left rounded-3xl bg-gradient-to-br from-[#1E40AF] to-[#3b82f6] p-8 text-white shadow-xl shadow-blue-900/10 transition hover:-translate-y-1 ${kind === 'SSC' ? 'ring-4 ring-blue-200' : ''}`}>
-            <div className="flex items-start justify-between">
-              <span className="text-4xl font-black">SSC</span>
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">Secondary</span>
-            </div>
-            <p className="mt-12 text-blue-100">Build unshakeable fundamentals.</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {sscSubjects.map(subject => (
-                <span key={subject} className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm">{subject}</span>
-              ))}
-            </div>
-          </button>
+          {cardsToRender.map((card, idx) => {
+            const isSelected = kind === card.title;
+            // Using different color schemes for 1st and 2nd cards as fallback
+            const isFirst = idx === 0;
+            const bgClass = isFirst 
+              ? 'bg-gradient-to-br from-[#1E40AF] to-[#3b82f6] shadow-blue-900/10'
+              : 'bg-gradient-to-br from-[#0D766E] to-[#14b8a6] shadow-teal-900/10';
+            const ringClass = isFirst ? 'ring-blue-200' : 'ring-teal-200';
+            const descColor = isFirst ? 'text-blue-100' : 'text-teal-50';
 
-          <button onClick={() => setKind('HSC')} className={`text-left rounded-3xl bg-gradient-to-br from-[#0D766E] to-[#14b8a6] p-8 text-white shadow-xl shadow-teal-900/10 transition hover:-translate-y-1 ${kind === 'HSC' ? 'ring-4 ring-teal-200' : ''}`}>
-            <div className="flex items-start justify-between">
-              <span className="text-4xl font-black">HSC</span>
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">Higher Secondary</span>
-            </div>
-            <p className="mt-12 text-teal-50">Turn complex chapters into momentum.</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {hscSubjects.map(subject => (
-                <span key={subject} className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm">{subject}</span>
-              ))}
-            </div>
-          </button>
+            return (
+              <button 
+                key={card.title} 
+                onClick={() => setKind(card.title as ScheduleKind)} 
+                className={`text-left rounded-3xl ${bgClass} p-8 text-white shadow-xl transition hover:-translate-y-1 ${isSelected ? `ring-4 ${ringClass}` : ''}`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-4xl font-black">{card.title}</span>
+                  {card.badge && (
+                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">{card.badge}</span>
+                  )}
+                </div>
+                <p className={`mt-12 ${descColor}`}>{card.description}</p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {(card.subjects || []).map((subject: string) => (
+                    <span key={subject} className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm">{subject}</span>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-7 flex flex-col items-start justify-between gap-5 rounded-3xl bg-white p-6 shadow-lg shadow-slate-200/70 sm:flex-row sm:items-center sm:p-8">
@@ -160,7 +184,7 @@ export const ScheduleSection = ({ scheduleData }: ScheduleSectionProps) => {
                 <fieldset>
                   <legend className="mb-3 text-sm font-bold">Subjects <span className="font-normal text-slate-500">({kind})</span></legend>
                   <div className="flex flex-wrap gap-2">
-                    {subjects.map(subject => (
+                    {subjects.map((subject: string) => (
                       <label key={subject} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedSubjects.includes(subject) ? 'border-blue-300 bg-blue-50 text-[#1E40AF]' : 'border-slate-200'}`}>
                         <input type="checkbox" checked={selectedSubjects.includes(subject)} onChange={() => toggleSubject(subject)} className="accent-[#1E40AF]" />
                         {subject}

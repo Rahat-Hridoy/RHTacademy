@@ -5,14 +5,16 @@ export default async function LandingControlsPage() {
   const supabase = await createAdminClient();
 
   const { data: aboutMe } = await supabase.from('about_me').select('*').limit(1);
-  const { data: bookingCards } = await supabase.from('booking_cards').select('*').limit(1);
-  const { data: schedules } = await supabase.from('schedule_booking').select('*').order('id', { ascending: true });
+  const { data: serviceCards } = await supabase.from('service_cards').select('*').order('created_at', { ascending: true });
+  const { data: bookingSettings } = await supabase.from('booking_settings').select('*').limit(1);
+  const { data: bookingTimeSlots } = await supabase.from('booking_time_slots').select('*').order('created_at', { ascending: true });
 
   return (
     <LandingControls 
       aboutMe={aboutMe || []}
-      bookingCards={bookingCards || []}
-      schedules={schedules || []}
+      serviceCards={serviceCards || []}
+      bookingSettings={bookingSettings || []}
+      bookingTimeSlots={bookingTimeSlots || []}
     />
   );
 }

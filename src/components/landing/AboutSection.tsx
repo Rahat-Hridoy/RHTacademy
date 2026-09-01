@@ -11,9 +11,9 @@ interface AboutMeProps {
 
 export const AboutSection = ({ data }: { data?: AboutMeProps }) => {
   const {
-    name = "Md. Rashedul Hasan",
-    degree = "M.Sc. in Physics",
-    institute = "University of Dhaka",
+    name = "Rahatul Islalm",
+    degree = "BSc in EEE",
+    institute = "Leading University Sylhet",
     description,
     about_me_photo
   } = data || {};
@@ -21,11 +21,11 @@ export const AboutSection = ({ data }: { data?: AboutMeProps }) => {
   const bioParagraphs = description
     ? description.split('\n').filter(p => p.trim() !== '')
     : [
-        'I am Md. Rashedul Hasan, a certified educator with a deep love for making science feel clear, connected, and genuinely enjoyable.',
-        'Over the past 8 years, I have helped SSC and HSC learners move from uncertainty to confidence through focused, one-to-one academic coaching.',
-        'My approach blends strong fundamentals with exam-smart practice. We slow down for the hard ideas, then build the speed and structure needed in the exam hall.',
-        'Every schedule is shaped around the student: their goals, their pace, and the small wins that make ambitious progress feel possible.'
-      ];
+      'I am Rahat, a certified educator with a deep love for making science feel clear, connected, and genuinely enjoyable.',
+      'Over the past 8 years, I have helped SSC and HSC learners move from uncertainty to confidence through focused, one-to-one academic coaching.',
+      'My approach blends strong fundamentals with exam-smart practice. We slow down for the hard ideas, then build the speed and structure needed in the exam hall.',
+      'Every schedule is shaped around the student: their goals, their pace, and the small wins that make ambitious progress feel possible.'
+    ];
 
   return (
     <section id="about" className="mx-auto grid max-w-7xl gap-14 px-6 py-24 sm:px-10 lg:grid-cols-[.8fr_1.2fr] lg:px-16 lg:py-32">
