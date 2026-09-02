@@ -182,7 +182,24 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
                   <input name="phone" required type="tel" placeholder="+880 1XXX XXXXXX" className="rounded-xl border border-slate-200 bg-[#F9FAFB] px-4 py-3 font-normal outline-none focus:border-[#1E40AF]" />
                 </label>
                 <fieldset>
-                  <legend className="mb-3 text-sm font-bold">Subjects <span className="font-normal text-slate-500">({kind})</span></legend>
+                  <div className="mb-3 flex items-center justify-between">
+                    <legend className="text-sm font-bold">Subjects</legend>
+                    <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                      {cardsToRender.map(card => (
+                        <button
+                          key={card.title}
+                          type="button"
+                          onClick={() => {
+                            setKind(card.title as ScheduleKind);
+                            setSelectedSubjects([]);
+                          }}
+                          className={`rounded-md px-3 py-1 text-xs font-bold transition-all ${kind === card.title ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          {card.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {subjects.map((subject: string) => (
                       <label key={subject} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedSubjects.includes(subject) ? 'border-blue-300 bg-blue-50 text-[#1E40AF]' : 'border-slate-200'}`}>

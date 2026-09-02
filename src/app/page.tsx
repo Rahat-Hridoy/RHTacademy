@@ -20,11 +20,15 @@ export default async function LandingPage() {
     .single();
 
   // Fetch Schedule Booking data
-  const { data: scheduleData } = await supabase
-    .from('schedule_booking')
-    .select('available_seat, available_time')
+  const { data: bookingSettings } = await supabase
+    .from('booking_settings')
+    .select('available_seats')
     .limit(1)
     .single();
+
+  const { data: bookingTimeSlots } = await supabase
+    .from('booking_time_slots')
+    .select('day_text, time_text');
 
   // Fetch Service Cards data
   const { data: serviceCardsData } = await supabase
@@ -32,9 +36,13 @@ export default async function LandingPage() {
     .select('*')
     .order('id', { ascending: true });
 
+  const formattedTimeSlots = bookingTimeSlots && bookingTimeSlots.length > 0
+    ? bookingTimeSlots.map(slot => `${slot.day_text} · ${slot.time_text}`)
+    : ['Saturday · 10:00 AM – 12:00 PM', 'Sunday · 4:00 PM – 6:00 PM'];
+
   const scheduleProps = {
-    available_seat: scheduleData?.available_seat ?? 1,
-    available_time: scheduleData?.available_time ?? ['Saturday · 10:00 AM – 12:00 PM', 'Sunday · 4:00 PM – 6:00 PM']
+    available_seat: bookingSettings?.available_seats ?? 1,
+    available_time: formattedTimeSlots
   };
 
   return (
