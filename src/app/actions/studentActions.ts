@@ -262,90 +262,46 @@ export async function deleteNotice(id: string) {
   return { success: true };
 }
 
-// PAYMENT TAB
-export async function addPaymentCycle(
-  studentId: string, 
-  cycleNumber: number, 
-  totalClassesCount: number, 
-  cycleClassLimit: number, 
-  status: 'due' | 'completed'
+// PAYMENT TAB (Dynamic Cycles)
+export async function upsertPaymentCycle(
+  studentId: string,
+  cycleNumber: number,
+  updates: {
+    total_classes_count?: number;
+    cycle_class_limit?: number;
+    payment_status?: 'due' | 'completed';
+    paid_at?: string | null;
+    alert_active?: boolean;
+  }
 ) {
   const supabase = await createAdminClient();
-  const { error } = await supabase
+  
+  // Try to find if cycle exists
+  const { data: existing } = await supabase
     .from('payment_cycles')
-    .insert({
-      student_id: studentId,
-      cycle_number: cycleNumber,
-      total_classes_count: totalClassesCount,
-      cycle_class_limit: cycleClassLimit,
-      payment_status: status,
-      paid_at: status === 'completed' ? new Date().toISOString() : null
-    });
+    .select('id')
+    .eq('student_id', studentId)
+    .eq('cycle_number', cycleNumber)
+    .maybeSingle();
 
-  if (error) return { error: 'Failed to add payment cycle: ' + error.message };
-  revalidatePath('/admin/dashboard/students');
-  return { success: true };
-}
+  if (existing) {
+    const { error } = await supabase
+      .from('payment_cycles')
+      .update(updates)
+      .eq('id', existing.id);
+    if (error) return { error: 'Failed to update payment cycle: ' + error.message };
+  } else {
+    // Insert new
+    const { error } = await supabase
+      .from('payment_cycles')
+      .insert({
+        student_id: studentId,
+        cycle_number: cycleNumber,
+        ...updates
+      });
+    if (error) return { error: 'Failed to create payment cycle: ' + error.message };
+  }
 
-export async function updatePaymentCycle(
-  cycleId: string, 
-  cycleNumber: number, 
-  totalClassesCount: number, 
-  cycleClassLimit: number, 
-  status: 'due' | 'completed'
-) {
-  const supabase = await createAdminClient();
-  const { error } = await supabase
-    .from('payment_cycles')
-    .update({
-      cycle_number: cycleNumber,
-      total_classes_count: totalClassesCount,
-      cycle_class_limit: cycleClassLimit,
-      payment_status: status,
-      paid_at: status === 'completed' ? new Date().toISOString() : null
-    })
-    .eq('id', cycleId);
-
-  if (error) return { error: 'Failed to update payment cycle: ' + error.message };
-  revalidatePath('/admin/dashboard/students');
-  return { success: true };
-}
-
-export async function updatePaymentCycleStatus(cycleId: string, status: 'due' | 'completed') {
-  const supabase = await createAdminClient();
-  const { error } = await supabase
-    .from('payment_cycles')
-    .update({ 
-      payment_status: status,
-      paid_at: status === 'completed' ? new Date().toISOString() : null
-    })
-    .eq('id', cycleId);
-
-  if (error) return { error: 'Failed to update payment status: ' + error.message };
-  revalidatePath('/admin/dashboard/students');
-  return { success: true };
-}
-
-export async function deletePaymentCycle(cycleId: string) {
-  const supabase = await createAdminClient();
-  const { error } = await supabase
-    .from('payment_cycles')
-    .delete()
-    .eq('id', cycleId);
-
-  if (error) return { error: 'Failed to delete payment cycle: ' + error.message };
-  revalidatePath('/admin/dashboard/students');
-  return { success: true };
-}
-
-export async function togglePaymentAlert(studentId: string, isAlertEnabled: boolean) {
-  const supabase = await createAdminClient();
-  const { error } = await supabase
-    .from('profiles')
-    .update({ due_payment_alert: isAlertEnabled })
-    .eq('id', studentId);
-
-  if (error) return { error: 'Failed to toggle alert: ' + error.message };
   revalidatePath('/admin/dashboard/students');
   return { success: true };
 }

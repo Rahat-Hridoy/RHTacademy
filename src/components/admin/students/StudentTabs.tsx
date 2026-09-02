@@ -19,11 +19,7 @@ import {
   deleteResource,
   sendNotice,
   deleteNotice,
-  addPaymentCycle,
-  updatePaymentCycle,
-  updatePaymentCycleStatus,
-  deletePaymentCycle,
-  togglePaymentAlert,
+  upsertPaymentCycle,
   setAccountStatus,
   deleteStudentAccount,
   saveStudentScheduleTime,
@@ -1130,113 +1126,147 @@ export const PaymentTab = ({
   const router = useRouter();
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isPending, setIsPending] = useState(false);
-  const [expandedCycleId, setExpandedCycleId] = useState<string | null>(null);
-  const [paymentAlert, setPaymentAlert] = useState(!!student.due_payment_alert);
+  const [pendingPaymentCycleId, setPendingPaymentCycleId] = useState<string | null>(null);
+  const [cyclePaymentDraftDates, setCyclePaymentDraftDates] = useState<Record<string, string>>({});
+
   // cycle config: prefer student's saved limit, default 8
   const savedLimit = student.cycle_class_limit || 8;
-  const [cycleSize, setCycleSize] = useState<8 | 12>(savedLimit === 12 ? 12 : 8);
+  const [cycleSize, setCycleSize] = useState<'8 Classes' | '12 Classes'>(savedLimit === 12 ? '12 Classes' : '8 Classes');
 
-  // ── Derive attended dates per cycle ──────────────────────────────
-  // Sort completed attendance by date ASC → slice by cumulative cycle counts
-  const attendedSorted = useMemo(() =>
+  const ordinalMonthTitle = (value: number) => {
+    const modTen = value % 10;
+    const modHundred = value % 100;
+    const suffix = modTen === 1 && modHundred !== 11 ? 'st' : modTen === 2 && modHundred !== 12 ? 'nd' : modTen === 3 && modHundred !== 13 ? 'rd' : 'th';
+    return `${value}${suffix} Month`;
+  };
+
+  const paymentCycleLength = cycleSize === '8 Classes' ? 8 : 12;
+  const completedAttendanceDates = useMemo(() =>
     attendance
       .filter(a => a.completed)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     [attendance]
   );
 
-  const cyclesSorted = useMemo(() =>
-    [...paymentCycles].sort((a, b) => a.cycle_number - b.cycle_number),
-    [paymentCycles]
-  );
-
-  function getDatesForCycle(cycleId: string): string[] {
-    let offset = 0;
-    for (const c of cyclesSorted) {
-      if (c.id === cycleId) {
-        return attendedSorted
-          .slice(offset, offset + c.total_classes_count)
-          .map(a => a.date);
+  const generatedPaymentCycles = useMemo(() => {
+    const cycleGroups: any[] = [];
+    for (let start = 0; start < completedAttendanceDates.length; start += paymentCycleLength) {
+      const cycleIndex = Math.floor(start / paymentCycleLength) + 1;
+      const id = `cycle-${paymentCycleLength}-${cycleIndex}`;
+      const dates = completedAttendanceDates.slice(start, start + paymentCycleLength);
+      const isComplete = dates.length === paymentCycleLength;
+      
+      const dbRecord = paymentCycles.find(c => c.cycle_number === cycleIndex);
+      
+      let status = 'In Progress';
+      if (dbRecord) {
+        status = dbRecord.payment_status === 'completed' ? 'Completed' : 'Due';
+      } else if (isComplete) {
+        status = 'Due';
       }
-      offset += c.total_classes_count;
-    }
-    return [];
-  }
 
-  // ── Save cycle config ─────────────────────────────────────────────
+      cycleGroups.push({
+        id,
+        cycleIndex,
+        title: ordinalMonthTitle(cycleIndex),
+        dates,
+        status,
+        paidDate: dbRecord?.paid_at ?? '',
+        limit: paymentCycleLength,
+        isComplete,
+        alertActive: !!dbRecord?.alert_active
+      });
+    }
+    return cycleGroups.reverse();
+  }, [completedAttendanceDates, paymentCycleLength, paymentCycles]);
+
+  const paymentCycleTone = (status: string) => {
+    switch (status) {
+      case 'Completed': return { border: 'border-emerald-200', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200', action: 'text-emerald-700 border-emerald-200 hover:bg-emerald-50' };
+      case 'Due': return { border: 'border-red-200', badge: 'bg-red-50 text-red-700 ring-red-200', action: 'text-red-700 border-red-200 hover:bg-red-50' };
+      default: return { border: 'border-slate-200', badge: 'bg-slate-50 text-slate-600 ring-slate-200', action: 'text-slate-600 border-slate-200 hover:bg-slate-50' };
+    }
+  };
+
+  const formatPaidDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
   const handleSaveCycleConfig = async () => {
     setIsPending(true);
     setMsg(null);
-    const res = await updateStudentCycleConfig(student.id, cycleSize);
+    const limit = cycleSize === '8 Classes' ? 8 : 12;
+    const res = await updateStudentCycleConfig(student.id, limit);
     if (res?.error) setMsg({ text: res.error, type: 'error' });
     else { setMsg({ text: 'Payment cycle configuration saved.', type: 'success' }); router.refresh(); }
     setIsPending(false);
   };
 
-  // ── Toggle payment alert ──────────────────────────────────────────
-  const handleAlertToggle = async () => {
-    const next = !paymentAlert;
-    setPaymentAlert(next);
-    setIsPending(true);
-    const res = await togglePaymentAlert(student.id, next);
-    if (res?.error) {
-      setMsg({ text: res.error, type: 'error' });
-      setPaymentAlert(!next); // revert on error
-    } else {
-      setMsg({ text: `Payment alert ${next ? 'enabled' : 'disabled'}.`, type: 'success' });
-      router.refresh();
-    }
-    setIsPending(false);
-  };
-
-  // ── Quick status change ───────────────────────────────────────────
-  const handleStatusChange = async (cycleId: string, status: 'due' | 'completed') => {
+  const markCyclePaid = async (cycle: any) => {
     setIsPending(true);
     setMsg(null);
-    const res = await updatePaymentCycleStatus(cycleId, status);
-    if (res?.error) setMsg({ text: res.error, type: 'error' });
-    else { setMsg({ text: 'Payment status updated.', type: 'success' }); router.refresh(); }
-    setIsPending(false);
-  };
+    const draftDate = cyclePaymentDraftDates[cycle.id] || new Date().toISOString().split('T')[0];
+    const paidAt = new Date(draftDate).toISOString();
+    const limit = cycleSize === '8 Classes' ? 8 : 12;
 
-  // ── Delete cycle ──────────────────────────────────────────────────
-  const handleDeleteCycle = async (cycleId: string, num: number) => {
-    if (!confirm(`Delete Payment Cycle #${num}?`)) return;
-    setIsPending(true);
-    setMsg(null);
-    const res = await deletePaymentCycle(cycleId);
-    if (res?.error) setMsg({ text: res.error, type: 'error' });
-    else { setMsg({ text: `Cycle #${num} deleted.`, type: 'success' }); router.refresh(); }
-    setIsPending(false);
-  };
-
-  // ── Add cycle (from expanded form) ───────────────────────────────
-  const handleAddCycle = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const cycleNum = parseInt(fd.get('cycleNumber') as string) || 1;
-    const total = parseInt(fd.get('totalClassesCount') as string) || 0;
-    const limit = parseInt(fd.get('cycleClassLimit') as string) || cycleSize;
-    const status = fd.get('paymentStatus') as 'due' | 'completed';
-    setIsPending(true);
-    setMsg(null);
-    const res = await addPaymentCycle(student.id, cycleNum, total, limit, status);
+    const res = await upsertPaymentCycle(student.id, cycle.cycleIndex, {
+      payment_status: 'completed',
+      paid_at: paidAt,
+      total_classes_count: cycle.dates.length,
+      cycle_class_limit: limit
+    });
     if (res?.error) setMsg({ text: res.error, type: 'error' });
     else {
-      setMsg({ text: `Cycle #${cycleNum} added.`, type: 'success' });
-      (e.target as HTMLFormElement).reset();
+      setMsg({ text: 'Payment confirmed.', type: 'success' });
+      setPendingPaymentCycleId(null);
       router.refresh();
     }
     setIsPending(false);
   };
 
-  function statusBadge(s: string) {
-    if (s === 'completed') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-    return 'bg-red-50 text-red-700 ring-red-200';
-  }
+  const markCycleDue = async (cycle: any) => {
+    setIsPending(true);
+    setMsg(null);
+    const limit = cycleSize === '8 Classes' ? 8 : 12;
+    const res = await upsertPaymentCycle(student.id, cycle.cycleIndex, {
+      payment_status: 'due',
+      paid_at: null,
+      total_classes_count: cycle.dates.length,
+      cycle_class_limit: limit
+    });
+    if (res?.error) setMsg({ text: res.error, type: 'error' });
+    else {
+      setMsg({ text: 'Marked as Due.', type: 'success' });
+      router.refresh();
+    }
+    setIsPending(false);
+  };
+
+  const toggleAlert = async (cycle: any) => {
+    setIsPending(true);
+    setMsg(null);
+    const limit = cycleSize === '8 Classes' ? 8 : 12;
+    const res = await upsertPaymentCycle(student.id, cycle.cycleIndex, {
+      alert_active: !cycle.alertActive,
+      total_classes_count: cycle.dates.length,
+      cycle_class_limit: limit
+    });
+    if (res?.error) setMsg({ text: res.error, type: 'error' });
+    else {
+      setMsg({ text: `Alert ${cycle.alertActive ? 'disabled' : 'enabled'} for ${cycle.title}.`, type: 'success' });
+      router.refresh();
+    }
+    setIsPending(false);
+  };
 
   return (
     <div className="space-y-5">
+      <Feedback msg={msg} />
+      
       {/* ── Cycle Config Card ─────────────────────────────────────────── */}
       <section className="rounded-3xl border border-teal-200 bg-teal-50 p-5">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -1249,15 +1279,15 @@ export const PaymentTab = ({
           <div className="flex rounded-2xl bg-white p-1">
             <button
               type="button"
-              onClick={() => setCycleSize(8)}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${cycleSize === 8 ? 'bg-[#0D9488] text-white' : 'text-slate-600'}`}
+              onClick={() => setCycleSize('8 Classes')}
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${cycleSize === '8 Classes' ? 'bg-[#0D9488] text-white' : 'text-slate-600'}`}
             >
               8 Classes
             </button>
             <button
               type="button"
-              onClick={() => setCycleSize(12)}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${cycleSize === 12 ? 'bg-[#0D9488] text-white' : 'text-slate-600'}`}
+              onClick={() => setCycleSize('12 Classes')}
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${cycleSize === '12 Classes' ? 'bg-[#0D9488] text-white' : 'text-slate-600'}`}
             >
               12 Classes
             </button>
@@ -1266,169 +1296,133 @@ export const PaymentTab = ({
             type="button"
             onClick={handleSaveCycleConfig}
             disabled={isPending}
-            className="rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-medium text-white disabled:opacity-60 hover:bg-blue-900 transition-colors"
+            className="rounded-2xl bg-[#1E40AF] px-5 py-3 text-sm font-medium text-white disabled:opacity-60 transition-colors"
           >
             Save Cycle
           </button>
         </div>
       </section>
 
-      <Feedback msg={msg} />
-
-      {/* ── Add New Cycle Form ────────────────────────────────────────── */}
-      <details className="rounded-3xl border border-blue-100 bg-blue-50/40">
-        <summary className="cursor-pointer px-5 py-4 text-sm font-medium text-[#1E40AF] hover:bg-blue-50 rounded-3xl transition-colors">
-          + Add New Payment Cycle
-        </summary>
-        <form onSubmit={handleAddCycle} className="grid gap-3 p-5 sm:grid-cols-4 items-end border-t border-blue-100">
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Cycle #</label>
-            <input name="cycleNumber" type="number" defaultValue={(cyclesSorted[0]?.cycle_number || 0) + 1} required className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Classes Attended</label>
-            <input name="totalClassesCount" type="number" defaultValue={0} required className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Class Limit</label>
-            <input name="cycleClassLimit" type="number" defaultValue={cycleSize} required className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Status</label>
-            <select name="paymentStatus" defaultValue="due" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none">
-              <option value="due">Due</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-          <div className="sm:col-span-4 flex justify-end">
-            <button type="submit" disabled={isPending} className="rounded-xl bg-[#1E40AF] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60 hover:bg-blue-900 transition-colors">
-              {isPending ? 'Saving…' : 'Save Cycle'}
-            </button>
-          </div>
-        </form>
-      </details>
-
-      {/* ── Cycles List ───────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        {paymentCycles.length === 0 && (
+      {/* ── Generated Cycles ──────────────────────────────────────────── */}
+      <section className="space-y-4" aria-label="Generated payment cycles">
+        {generatedPaymentCycles.length === 0 && (
           <p className="rounded-3xl border border-dashed border-slate-300 py-8 text-center text-sm font-semibold text-slate-500">
-            No payment cycles recorded yet. Add one above.
+            No completed attendance records found. Cycles will appear here automatically.
           </p>
         )}
-        {[...paymentCycles]
-          .sort((a, b) => b.cycle_number - a.cycle_number)
-          .map(cycle => {
-            const isExpanded = expandedCycleId === cycle.id;
-            const cycleDates = getDatesForCycle(cycle.id);
-            return (
-              <article key={cycle.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                {/* Cycle Row */}
-                <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
-                  <div className="grid gap-2 sm:grid-cols-5 sm:items-center">
-                    <p className="font-medium text-slate-950">Cycle #{cycle.cycle_number}</p>
-                    <p className="text-sm font-normal text-slate-500">{cycle.total_classes_count} classes</p>
-                    <p className="text-sm font-normal text-slate-500">Limit: {cycle.cycle_class_limit}</p>
-                    <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${statusBadge(cycle.payment_status)}`}>
-                      {cycle.payment_status === 'completed' ? 'Completed' : 'Due'}
+        {generatedPaymentCycles.map(cycle => {
+          const cycleTone = paymentCycleTone(cycle.status);
+          const alertActive = cycle.alertActive;
+          return (
+            <article key={cycle.id} className={`rounded-3xl border bg-white p-4 shadow-sm ${cycleTone.border}`}>
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                <h3 className="text-xl font-semibold tracking-tight text-slate-950">{cycle.title}</h3>
+                <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ring-1 ${cycleTone.badge}`}>
+                  {cycle.status}
+                </span>
+              </div>
+              
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Taken Classes:</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {cycle.dates.map((date: any, idx: number) => (
+                    <span key={`${cycle.id}-${idx}`} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-[#1E40AF] ring-1 ring-blue-100">
+                      {fmtDate(date.date)}
                     </span>
-                    <p className="text-sm font-normal text-slate-500">
-                      {cycle.payment_status === 'completed' && cycle.paid_at
-                        ? new Date(cycle.paid_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : 'Pending'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  ))}
+                  {cycle.dates.length === 0 && (
+                    <span className="text-sm font-medium text-slate-500">No dates recorded</span>
+                  )}
+                </div>
+                <p className="mt-2.5 text-sm font-bold text-slate-500">
+                  {cycle.dates.length} of {cycle.limit} classes completed
+                  {cycle.status === 'In Progress' ? ' (In Progress)' : ''}
+                </p>
+              </div>
+
+              {cycle.status === 'Completed' && cycle.paidDate && (
+                <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
+                  <Check size={15} aria-hidden="true" />
+                  <span>Paid on: {formatPaidDate(cycle.paidDate)}</span>
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  {cycle.status === 'Completed' ? (
                     <button
                       type="button"
-                      onClick={() => setExpandedCycleId(isExpanded ? null : cycle.id)}
-                      className="rounded-xl border border-blue-200 px-4 py-2 text-sm font-medium text-[#1E40AF] hover:bg-blue-50 transition-colors"
-                    >
-                      {isExpanded ? 'Collapse' : 'Update'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCycle(cycle.id, cycle.cycle_number)}
+                      onClick={() => markCycleDue(cycle)}
                       disabled={isPending}
-                      className="rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      className={`rounded-2xl border bg-white px-4 py-2.5 text-sm font-medium transition-colors ${cycleTone.action}`}
                     >
-                      <Trash2 size={16} />
+                      Mark as Due
                     </button>
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!cycle.isComplete || isPending}
+                      onClick={() => {
+                        setPendingPaymentCycleId(cycle.id);
+                        setCyclePaymentDraftDates(current => ({
+                          ...current,
+                          [cycle.id]: current[cycle.id] || new Date().toISOString().split('T')[0]
+                        }));
+                      }}
+                      className={`rounded-2xl border bg-white px-4 py-2.5 text-sm font-medium transition-colors ${
+                        cycle.isComplete ? cycleTone.action : 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                      }`}
+                    >
+                      Mark as Paid
+                    </button>
+                  )}
+                  
+                  {pendingPaymentCycleId === cycle.id && cycle.status === 'Due' && (
+                    <label className="text-sm font-medium text-slate-700">
+                      <span>Payment Received Date</span>
+                      <input
+                        type="date"
+                        value={cyclePaymentDraftDates[cycle.id] ?? new Date().toISOString().split('T')[0]}
+                        onChange={event => setCyclePaymentDraftDates(current => ({
+                          ...current,
+                          [cycle.id]: event.target.value
+                        }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 sm:w-[210px]"
+                      />
+                    </label>
+                  )}
+                  
+                  {pendingPaymentCycleId === cycle.id && cycle.status === 'Due' && (
+                    <button
+                      type="button"
+                      onClick={() => markCyclePaid(cycle)}
+                      disabled={isPending}
+                      className="rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+                    >
+                      Confirm Paid
+                    </button>
+                  )}
                 </div>
 
-                {/* Expanded Panel */}
-                {isExpanded && (
-                  <div className="mt-4 grid gap-4 rounded-2xl bg-slate-50 p-4 lg:grid-cols-2">
-                    {/* Class dates derived from attendance */}
-                    <div>
-                      <p className="font-medium text-slate-900">Class dates conducted</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {cycleDates.length === 0 ? (
-                          <span className="text-xs font-semibold text-slate-500">
-                            No attended records mapped to this cycle yet.
-                          </span>
-                        ) : (
-                          cycleDates.map(d => (
-                            <span key={d} className="rounded-full bg-white px-3 py-1 text-xs font-normal text-slate-600 shadow-sm ring-1 ring-slate-200">
-                              {fmtDate(d)}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Quick update form */}
-                    <form
-                      onSubmit={async e => {
-                        e.preventDefault();
-                        const fd = new FormData(e.currentTarget);
-                        const status = fd.get('status') as 'due' | 'completed';
-                        await handleStatusChange(cycle.id, status);
-                        setExpandedCycleId(null);
-                      }}
-                      className="grid gap-2 sm:grid-cols-2 items-end"
-                    >
-                      <div>
-                        <label className="text-xs font-medium text-slate-600 block mb-1">Status</label>
-                        <select name="status" defaultValue={cycle.payment_status} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none">
-                          <option value="due">Due</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                      </div>
-                      <button type="submit" disabled={isPending} className="rounded-xl bg-[#1E40AF] px-3 py-2 text-sm font-medium text-white disabled:opacity-60 hover:bg-blue-900 transition-colors">
-                        Save
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-      </section>
-
-      {/* ── Due Payment Alert Toggle ──────────────────────────────────── */}
-      <section className="flex flex-col justify-between gap-4 rounded-3xl border border-red-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
-        <div className="flex gap-3">
-          <Bell className="text-red-500 shrink-0 mt-0.5" size={22} aria-hidden="true" />
-          <div>
-            <h3 className="font-medium text-slate-950">Due Payment Alert</h3>
-            <p className="text-sm text-slate-500">
-              When enabled, the student sees a payment due alert on their dashboard.
-            </p>
-          </div>
-        </div>
-        {/* Toggle Switch */}
-        <button
-          type="button"
-          onClick={handleAlertToggle}
-          disabled={isPending}
-          aria-pressed={paymentAlert}
-          className={`relative h-8 w-14 shrink-0 rounded-full p-1 transition-colors duration-200 ${paymentAlert ? 'bg-red-500' : 'bg-slate-300'}`}
-        >
-          <span
-            className={`block h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ${paymentAlert ? 'translate-x-6' : 'translate-x-0'}`}
-          />
-        </button>
+                <button
+                  type="button"
+                  title="When active, student sees a payment due popup on their portal"
+                  aria-pressed={alertActive}
+                  onClick={() => toggleAlert(cycle)}
+                  disabled={isPending}
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    alertActive 
+                      ? 'border-red-600 bg-red-600 text-white shadow-sm shadow-red-950/10 hover:bg-red-700' 
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Bell size={16} aria-hidden="true" />
+                  <span>{alertActive ? 'Alert Active' : 'Set Due Alert'}</span>
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </section>
     </div>
   );

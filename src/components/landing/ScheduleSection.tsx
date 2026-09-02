@@ -155,11 +155,10 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
 
         <div className="mt-7 flex flex-col items-start justify-between gap-5 rounded-3xl bg-white p-6 shadow-lg shadow-slate-200/70 sm:flex-row sm:items-center sm:p-8">
           <div>
-            <p className="flex items-center gap-2 text-sm font-bold text-[#15803d]">
-              <span className={`h-2.5 w-2.5 rounded-full ${scheduleData.available_seat > 0 ? 'bg-[#22c55e]' : 'bg-red-500'}`} />
-              {scheduleData.available_seat} Seat{scheduleData.available_seat !== 1 && 's'} Available
+            <p className=" mb-2 text-sm font-extrabold">
+              Make this hour yours.
             </p>
-            <h3 className="mt-2 text-2xl font-extrabold">Make this hour yours.</h3>
+            <h3 className="flex items-center gap-2 text-2xl font-bold text-[#15803d]"> <span className={`h-2.5 w-2.5 rounded-full ${scheduleData.available_seat > 0 ? 'bg-[#22c55e]' : 'bg-red-500'}`} /> Only <span className="font-bold text-orange-500">{scheduleData.available_seat}</span> Seat{scheduleData.available_seat !== 1 && 's'} Available</h3>
             <p className="mt-1 text-[#64748B]">New students are welcome this month.</p>
           </div>
           <button
