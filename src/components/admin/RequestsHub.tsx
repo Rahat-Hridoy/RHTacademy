@@ -22,6 +22,7 @@ export type RawRequest = {
   phone?: string;
   class?: string;
   subject?: string;
+  service_type?: string;
   message?: string;
   status: string;
   created_at: string;

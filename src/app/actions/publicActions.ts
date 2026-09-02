@@ -11,6 +11,7 @@ export async function submitBookingRequest(formData: FormData) {
   const email = formData.get('email') as string;
   const phone = formData.get('phone') as string;
   const class_time = formData.get('class_time') as string;
+  const service_type = formData.get('kind') as string;
   const subjects = JSON.parse(formData.get('subjects') as string || '[]');
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@rhtacademy.com';
 
@@ -39,6 +40,7 @@ export async function submitBookingRequest(formData: FormData) {
       phone,
       selected_subject: subjects.join(', '),
       class_time,
+      service_type,
       status: 'pending'
     });
 

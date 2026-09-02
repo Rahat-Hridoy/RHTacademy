@@ -45,9 +45,9 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
   const subjects = selectedCard?.subjects || [];
 
   const toggleSubject = (subject: string) => {
-    setSelectedSubjects(current => 
-      current.includes(subject) 
-        ? current.filter(item => item !== subject) 
+    setSelectedSubjects(current =>
+      current.includes(subject)
+        ? current.filter(item => item !== subject)
         : [...current, subject]
     );
   };
@@ -55,16 +55,50 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
   const handleBookingSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMsg('');
+
+    const form = event.currentTarget;
+    const name = (form.elements.namedItem('name') as HTMLInputElement)?.value?.trim();
+    const email = (form.elements.namedItem('email') as HTMLInputElement)?.value?.trim();
+    const phone = (form.elements.namedItem('phone') as HTMLInputElement)?.value?.trim();
+    const class_time = (form.elements.namedItem('class_time') as HTMLSelectElement)?.value?.trim();
+
+    // Client-side validation: all fields required
+    if (!name) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    if (!email) {
+      setErrorMsg('Please enter your email address.');
+      return;
+    }
+    if (!phone) {
+      setErrorMsg('Please enter your phone number.');
+      return;
+    }
+    if (!class_time) {
+      setErrorMsg('Please select an available time slot.');
+      return;
+    }
+    if (selectedSubjects.length === 0) {
+      setErrorMsg('Please select at least one subject before submitting.');
+      return;
+    }
+
     setIsPending(true);
 
-    const formData = new FormData(event.currentTarget);
-    formData.append('kind', kind);
-    formData.append('subjects', JSON.stringify(selectedSubjects));
+    const formData = new FormData(form);
+    formData.set('kind', kind);
+    formData.set('subjects', JSON.stringify(selectedSubjects));
 
     try {
       const result = await submitBookingRequest(formData);
       if (result.error) {
-        setErrorMsg(result.error);
+        // Show a prominent duplicate-email warning
+        if (result.error.toLowerCase().includes('already')) {
+          setErrorMsg('⚠️ This email has already been used to book a schedule. ');
+        } else {
+          setErrorMsg(result.error);
+        }
       } else {
         setSubmitted(true);
       }
@@ -74,6 +108,7 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
       setIsPending(false);
     }
   };
+
 
   return (
     <section id="schedule" className="bg-[#eef4fb] px-6 py-24 sm:px-10 lg:px-16 lg:py-32">
@@ -89,16 +124,16 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
             const isSelected = kind === card.title;
             // Using different color schemes for 1st and 2nd cards as fallback
             const isFirst = idx === 0;
-            const bgClass = isFirst 
+            const bgClass = isFirst
               ? 'bg-gradient-to-br from-[#1E40AF] to-[#3b82f6] shadow-blue-900/10'
               : 'bg-gradient-to-br from-[#0D766E] to-[#14b8a6] shadow-teal-900/10';
             const ringClass = isFirst ? 'ring-blue-200' : 'ring-teal-200';
             const descColor = isFirst ? 'text-blue-100' : 'text-teal-50';
 
             return (
-              <button 
-                key={card.title} 
-                onClick={() => setKind(card.title as ScheduleKind)} 
+              <button
+                key={card.title}
+                onClick={() => setKind(card.title as ScheduleKind)}
                 className={`text-left rounded-3xl ${bgClass} p-8 text-white shadow-xl transition hover:-translate-y-1 ${isSelected ? `ring-4 ${ringClass}` : ''}`}
               >
                 <div className="flex items-start justify-between">
@@ -121,18 +156,18 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
         <div className="mt-7 flex flex-col items-start justify-between gap-5 rounded-3xl bg-white p-6 shadow-lg shadow-slate-200/70 sm:flex-row sm:items-center sm:p-8">
           <div>
             <p className="flex items-center gap-2 text-sm font-bold text-[#15803d]">
-              <span className={`h-2.5 w-2.5 rounded-full ${scheduleData.available_seat > 0 ? 'bg-[#22c55e]' : 'bg-red-500'}`} /> 
+              <span className={`h-2.5 w-2.5 rounded-full ${scheduleData.available_seat > 0 ? 'bg-[#22c55e]' : 'bg-red-500'}`} />
               {scheduleData.available_seat} Seat{scheduleData.available_seat !== 1 && 's'} Available
             </p>
             <h3 className="mt-2 text-2xl font-extrabold">Make this hour yours.</h3>
             <p className="mt-1 text-[#64748B]">New students are welcome this month.</p>
           </div>
-          <button 
+          <button
             disabled={scheduleData.available_seat <= 0}
             onClick={() => {
               setSubmitted(false);
               setModalOpen(true);
-            }} 
+            }}
             className="rounded-xl bg-[#1E40AF] px-8 py-4 font-bold text-white shadow-md transition hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
             Book Now <ArrowRight className="ml-2 inline" size={17} />
           </button>
@@ -151,7 +186,7 @@ export const ScheduleSection = ({ scheduleData, serviceCards }: ScheduleSectionP
                 <X size={22} />
               </button>
             </div>
-            
+
             {submitted ? (
               <div className="mt-8 rounded-2xl bg-[#ecfdf5] p-8 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#0D9488] text-white">

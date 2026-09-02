@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { X, CheckCircle2, XCircle, User, Mail, Phone, BookOpen, Clock, Calendar } from 'lucide-react';
+import { X, CheckCircle2, XCircle, User, Mail, Phone, BookOpen, Clock, Calendar, GraduationCap } from 'lucide-react';
 import { RawRequest } from './RequestsHub';
 
 interface BookingDetailsModalProps {
@@ -25,7 +25,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
         className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
@@ -86,6 +86,15 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
 
           <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-4 space-y-3">
+            {booking.service_type && (
+              <div className="flex items-center gap-3">
+                <GraduationCap size={16} className="text-teal-600 shrink-0" />
+                <div>
+                  <span className="text-xs font-semibold text-teal-700 block uppercase tracking-wider">Class</span>
+                  <span className="text-sm font-bold text-slate-900">{booking.service_type}</span>
+                </div>
+              </div>
+            )}
             {booking.subject && (
               <div className="flex items-start gap-3">
                 <BookOpen size={16} className="text-teal-600 shrink-0 mt-0.5" />
@@ -99,7 +108,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             <div className="flex items-center gap-3 pt-1 border-t border-teal-100/60">
               <Clock size={16} className="text-teal-600 shrink-0" />
               <div>
-                <span className="text-xs font-semibold text-teal-700 block uppercase tracking-wider">Requested Class Time / Slot</span>
+                <span className="text-xs font-semibold text-teal-700 block uppercase tracking-wider">Requested Time / Slot</span>
                 <span className="text-sm font-bold text-teal-900">{booking.class || 'Standard Slot'}</span>
               </div>
             </div>
@@ -122,7 +131,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           >
             Close
           </button>
-          
+
           <button
             onClick={() => onRefuse(booking.id)}
             disabled={isProcessing}

@@ -123,27 +123,12 @@ export async function handleBooking(id: string, action: 'confirm' | 'refuse' | '
     const status = action === 'confirm' ? 'confirmed' : action === 'refuse' ? 'refused' : 'contacted';
 
     // Update booking_requests status
-    let { data: request, error } = await supabaseAdmin
+    const { data: request, error } = await supabaseAdmin
       .from('booking_requests')
       .update({ status })
       .eq('id', id)
       .select()
       .single();
-
-    // Fallback if status constraint restricts values to pending/contacted
-    if (error) {
-      console.warn("Retrying booking update with fallback status 'contacted':", error.message);
-      const fallbackStatus = action === 'refuse' ? 'contacted' : 'contacted';
-      const fallbackRes = await supabaseAdmin
-        .from('booking_requests')
-        .update({ status: fallbackStatus })
-        .eq('id', id)
-        .select()
-        .single();
-      
-      request = fallbackRes.data;
-      error = fallbackRes.error;
-    }
 
     if (error || !request) {
       console.error("Failed to update booking request:", error);

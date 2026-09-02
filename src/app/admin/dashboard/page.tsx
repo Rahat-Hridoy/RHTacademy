@@ -44,6 +44,7 @@ export default async function AdminDashboardPage() {
       phone: b.phone,
       class: b.class_time, // Class time / slot info
       subject: b.selected_subject,
+      service_type: b.service_type,
       status: b.status || 'pending',
       created_at: b.created_at
     }));
