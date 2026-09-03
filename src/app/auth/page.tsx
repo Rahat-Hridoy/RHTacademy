@@ -93,7 +93,7 @@ function AuthContent() {
       if (res?.error) {
         setErrorMsg(res.error)
       } else {
-        router.push(`/portal/${res?.userId}`)
+        router.push(`/portal/${res?.userId}/dashboard`)
       }
     })
   }

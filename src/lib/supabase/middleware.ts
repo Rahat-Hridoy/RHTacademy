@@ -71,7 +71,7 @@ export async function updateSession(request: NextRequest) {
 
     if (metaRole === 'student' && metaApproved) {
       const url = request.nextUrl.clone()
-      url.pathname = `/portal/${user.id}`
+      url.pathname = `/portal/${user.id}/dashboard`
       return NextResponse.redirect(url)
     }
 
@@ -89,7 +89,7 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
       } else if (profile?.is_approved) {
         const url = request.nextUrl.clone()
-        url.pathname = `/portal/${user.id}`
+        url.pathname = `/portal/${user.id}/dashboard`
         return NextResponse.redirect(url)
       }
     }
