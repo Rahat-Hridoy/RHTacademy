@@ -47,6 +47,8 @@ export const PortalShell = ({
     return 'Good evening';
   };
 
+  const isDashboard = pathname.endsWith('/dashboard') || pathname === `/portal/${studentId}`;
+
   return (
     <div className="student-shell min-h-screen bg-[#F9FAFB] text-slate-900">
       <AppSidebar
@@ -99,33 +101,19 @@ export const PortalShell = ({
         )}
 
         <main className="mx-auto max-w-[1450px] px-5 py-7 md:px-9 lg:px-12">
-          <section className="mb-8 flex flex-wrap items-end justify-between gap-5" aria-label="Page overview">
-            <div>
-              <p className="mb-2 text-sm font-semibold text-teal-700">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              </p>
-              <h2 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
-                {greeting()}, {studentName.split(' ')[0]}.
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">Here's your learning snapshot for today.</p>
-            </div>
-
-            <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-              {navItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => router.push(item.path)}
-                  className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                    pathname.startsWith(item.path)
-                      ? 'bg-blue-800 text-white shadow-sm'
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </section>
+          {isDashboard && (
+            <section className="mb-8" aria-label="Page overview">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-teal-700">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+                <h2 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+                  {greeting()}, {studentName.split(' ')[0]}.
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">Here's your learning snapshot for today.</p>
+              </div>
+            </section>
+          )}
 
           {children}
         </main>
