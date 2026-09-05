@@ -1,15 +1,11 @@
-import { PaymentMethodsAdmin } from '@/components/admin/payments/PaymentMethodsAdmin';
-import { createAdminClient } from '@/lib/supabase/server';
+import { Suspense } from 'react';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
+import AdminPaymentsStream from './_components/AdminPaymentsStream';
 
-export default async function PaymentsPage() {
-  const supabase = await createAdminClient();
-
-  const { data: methods } = await supabase
-    .from('payment_methods')
-    .select('*')
-    .order('created_at', { ascending: true });
-
+export default function PaymentsPage() {
   return (
-    <PaymentMethodsAdmin methods={methods || []} />
+    <Suspense fallback={<DashboardSkeleton />}>
+      <AdminPaymentsStream />
+    </Suspense>
   );
 }
