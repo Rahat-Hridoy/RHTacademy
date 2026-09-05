@@ -28,18 +28,18 @@ export default async function PaymentPage({
       .eq('completed', true)
       .order('date', { ascending: false }),
 
-    // Fetch global payment config from settings table
+    // Fetch active payment methods set by the admin
     supabase
-      .from('payment_config')
-      .select('bank_account_name, bank_name, account_number, branch, swift_code, routing, bkash_number, nagad_number, rocket_number, taptap_number')
-      .maybeSingle(),
+      .from('payment_methods')
+      .select('*')
+      .order('created_at', { ascending: true }),
   ]);
 
   return (
     <PaymentClient
       cycles={cyclesRes.data ?? []}
       attendance={attendanceRes.data ?? []}
-      paymentConfig={paymentConfigRes.data}
+      paymentMethods={paymentConfigRes.data ?? []}
     />
   );
 }

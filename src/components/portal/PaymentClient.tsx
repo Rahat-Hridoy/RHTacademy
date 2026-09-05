@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CalendarDays, Check, ChevronDown, ChevronUp, CircleAlert, Landmark, Smartphone } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, ChevronUp, CircleAlert, Landmark, Smartphone, Building } from 'lucide-react';
 
 interface AttendanceRecord {
   date: string;
@@ -20,23 +20,22 @@ interface PaymentCycle {
   created_at: string;
 }
 
-interface PaymentConfig {
-  bank_account_name: string | null;
-  bank_name: string | null;
-  account_number: string | null;
-  branch: string | null;
+interface PaymentMethod {
+  id: string;
+  type: 'bank' | 'mfs';
+  name: string;
+  icon: string | null;
+  account_name: string;
+  account_number: string;
+  branch_name: string | null;
+  routing_number: string | null;
   swift_code: string | null;
-  routing: string | null;
-  bkash_number: string | null;
-  nagad_number: string | null;
-  rocket_number: string | null;
-  taptap_number: string | null;
 }
 
 interface PaymentClientProps {
   cycles: PaymentCycle[];
   attendance: AttendanceRecord[];
-  paymentConfig: PaymentConfig | null;
+  paymentMethods: PaymentMethod[];
 }
 
 const INITIAL_VISIBLE = 3;
@@ -47,7 +46,7 @@ const formatDate = (iso: string) =>
 const formatShortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 
-export const PaymentClient = ({ cycles, attendance, paymentConfig }: PaymentClientProps) => {
+export const PaymentClient = ({ cycles, attendance, paymentMethods }: PaymentClientProps) => {
   const [showAll, setShowAll] = useState(false);
   const visibleCycles = showAll ? cycles : cycles.slice(0, INITIAL_VISIBLE);
 
@@ -72,12 +71,24 @@ export const PaymentClient = ({ cycles, attendance, paymentConfig }: PaymentClie
     return 'In Progress';
   };
 
-  const mfsMethods = [
-    { id: 'bkash', name: 'bKash', number: paymentConfig?.bkash_number, tone: 'border-pink-100 bg-pink-50/50', iconTone: 'bg-pink-500 text-white' },
-    { id: 'nagad', name: 'Nagad', number: paymentConfig?.nagad_number, tone: 'border-orange-100 bg-orange-50/50', iconTone: 'bg-orange-500 text-white' },
-    { id: 'rocket', name: 'Rocket', number: paymentConfig?.rocket_number, tone: 'border-purple-100 bg-purple-50/50', iconTone: 'bg-purple-600 text-white' },
-    { id: 'taptap', name: 'Taptap', number: paymentConfig?.taptap_number, tone: 'border-blue-100 bg-blue-50/50', iconTone: 'bg-blue-600 text-white' },
-  ].filter((m) => m.number);
+  const bankMethods = paymentMethods.filter(m => m.type === 'bank');
+  const mfsMethodsList = paymentMethods.filter(m => m.type === 'mfs');
+
+  const SafeImage = ({ src, alt, type, className }: { src: string, alt: string, type: 'bank' | 'mfs', className?: string }) => {
+    const [error, setError] = useState(false);
+  
+    const defaultBank = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%231e40af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 21h18'/><path d='M3 10h18'/><path d='M5 6l7-3 7 3'/><path d='M4 10v11'/><path d='M20 10v11'/><path d='M8 14v3'/><path d='M12 14v3'/><path d='M16 14v3'/></svg>";
+    const defaultMfs = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23047857' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect width='14' height='20' x='5' y='2' rx='2' ry='2'/><path d='M12 18h.01'/></svg>";
+  
+    return (
+      <img
+        src={error ? (type === 'bank' ? defaultBank : defaultMfs) : src}
+        alt={alt}
+        className={className}
+        onError={() => setError(true)}
+      />
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -181,7 +192,7 @@ export const PaymentClient = ({ cycles, attendance, paymentConfig }: PaymentClie
       </section>
 
       {/* Payment Details */}
-      {paymentConfig && (
+      {paymentMethods.length > 0 && (
         <section aria-labelledby="payment-details-title" className="space-y-5">
           <div className="border-b border-slate-200 pb-4">
             <h2 id="payment-details-title" className="text-xl font-semibold text-slate-900">
@@ -192,56 +203,87 @@ export const PaymentClient = ({ cycles, attendance, paymentConfig }: PaymentClie
             </p>
           </div>
 
-          {/* Bank Transfer */}
-          {paymentConfig.bank_account_name && (
-            <article className="rounded-xl border border-slate-200 border-l-[4px] border-l-blue-600 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-                  <Landmark size={21} />
-                </span>
-                <h3 className="text-base font-semibold text-slate-900">Bank Transfer</h3>
-              </div>
-              <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { label: 'Account Name', value: paymentConfig.bank_account_name },
-                  { label: 'Bank Name', value: paymentConfig.bank_name },
-                  { label: 'Account Number', value: paymentConfig.account_number },
-                  { label: 'Branch', value: paymentConfig.branch },
-                  { label: 'Swift Code', value: paymentConfig.swift_code },
-                  { label: 'Routing', value: paymentConfig.routing },
-                ].filter((f) => f.value).map((field) => (
-                  <div key={field.label} className="space-y-1">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{field.label}</dt>
-                    <dd className="text-sm font-semibold text-slate-900">{field.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </article>
-          )}
-
-          {/* MFS */}
-          {mfsMethods.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {mfsMethods.map((method) => (
-                <article key={method.id} className={`rounded-xl border p-4 shadow-sm ${method.tone}`}>
-                  <div className="flex items-center gap-3">
-                    <span className={`inline-flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold ${method.iconTone}`}>
-                      <Smartphone size={18} />
-                    </span>
-                    <div>
-                      <h3 className="font-semibold text-slate-900">{method.name}</h3>
-                      <p className="mt-0.5 text-sm font-medium text-slate-500">{method.number}</p>
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Bank Transfers Column */}
+            <div>
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900"><Building size={20} className="text-slate-500" /> Bank Transfers</h3>
+              <div className="grid gap-4">
+                {bankMethods.map(method => (
+                  <div key={method.id} className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        {method.icon ? (
+                          <div className="w-12 h-12 rounded-lg border border-slate-100 bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                            <SafeImage src={method.icon} alt={method.name} type="bank" className="max-w-full max-h-full object-contain p-1" />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                            <Building size={20} className="text-slate-400" />
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="font-bold text-lg text-slate-900">{method.name}</h4>
+                          <p className="text-slate-500 text-sm">Branch: {method.branch_name || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm bg-slate-50 p-3 rounded-xl border border-slate-100 mt-2">
+                      <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-slate-500">Account Name</span><span className="font-semibold text-slate-800">{method.account_name}</span></div>
+                      <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-slate-500">Account No.</span><span className="font-bold tracking-wider text-slate-900">{method.account_number}</span></div>
+                      <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-slate-500">Routing No.</span><span className="font-semibold text-slate-800">{method.routing_number || '-'}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Swift Code</span><span className="font-semibold text-slate-800">{method.swift_code || '-'}</span></div>
                     </div>
                   </div>
-                </article>
-              ))}
+                ))}
+                {bankMethods.length === 0 && (
+                  <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl">
+                    <Building size={24} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-500">No bank methods available.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* MFS Column */}
+            <div>
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900"><Smartphone size={20} className="text-slate-500" /> Mobile Financial Services (MFS)</h3>
+              <div className="grid gap-4">
+                {mfsMethodsList.map(method => (
+                  <div key={method.id} className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        {method.icon ? (
+                          <div className="w-12 h-12 rounded-lg border border-slate-100 bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                            <SafeImage src={method.icon} alt={method.name} type="mfs" className="max-w-full max-h-full object-contain p-1" />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                            <Smartphone size={20} className="text-slate-400" />
+                          </div>
+                        )}
+                        <h4 className="font-bold text-lg text-slate-900">{method.name}</h4>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm bg-slate-50 p-3 rounded-xl border border-slate-100 mt-auto">
+                      <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-slate-500">Account Name</span><span className="font-semibold text-slate-800">{method.account_name}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Account No.</span><span className="font-bold tracking-wider text-slate-900">{method.account_number}</span></div>
+                    </div>
+                  </div>
+                ))}
+                {mfsMethodsList.length === 0 && (
+                  <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl">
+                    <Smartphone size={24} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-500">No MFS methods available.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
       )}
 
       {/* No payment config set yet */}
-      {!paymentConfig && (
+      {paymentMethods.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
           <Landmark className="mx-auto text-slate-300" size={36} />
           <p className="mt-3 text-sm font-medium text-slate-500">
